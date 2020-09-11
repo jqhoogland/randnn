@@ -1,2 +1,4 @@
 # randnn
-Python module for implementing (and studying) random neural networks.
+
+A module for studying dynamical random neural networks.
+Written for my masters thesis.

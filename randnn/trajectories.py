@@ -9,7 +9,7 @@ Year: 2020
 
 """
 import os
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 from tqdm import tqdm
@@ -23,7 +23,24 @@ class Trajectory:
     A wrapper for an ODESolver to integrate formulas specified in children.
 
     """
-    def __init__(self, n_dofs=3):
+    def __init__(self,
+                 init_state: Optional[np.ndarray] = None,
+                 n_dofs: Optional[int] = 100):
+        """
+        :param init_state: the state to initialize the neurons with.
+            defaults to a state of `n_dofs` neurons drawn randomly from the uniform distribution.
+            if left blank, then `n_dofs` must be specified.
+        :param n_dofs: the number of dofs.
+            if `init_state` is of type `int`, this must be specified,
+            else `n_dofs` is overwritten by the size of `init_state`
+        """
+        if init_state is None:
+            assert not n_dofs is None
+            init_state = np.random.uniform(size=n_dofs)
+        else:
+            n_dofs = init_state.size
+
+        self.init_state = init_state
         self.n_dofs = n_dofs
 
     def __str__(self):
@@ -32,11 +49,8 @@ class Trajectory:
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
-    def run(self, init_dofs=None, n_burn_in=500, n_steps=10000, max_step=0.02):
-        if init_dofs == None:
-            init_dofs = np.random.uniform(size=self.n_dofs)
-
-        integrator = self.integrand(init_dofs, n_steps)
+    def run(self, n_burn_in=500, n_steps=10000, max_step=0.02):
+        integrator = self.integrate(self.init_state, n_steps)
         state = np.zeros([n_steps, self.n_dofs])
 
         for _ in tqdm(range(n_burn_in), desc="Burning in"):
@@ -81,8 +95,8 @@ class Trajectory:
 
 
 class DeterministicTrajectory(Trajectory):
-    def __init__(self, max_step=0.01, vectorized=True, n_dofs=3):
-        super(DeterministicTrajectory, self).__init__(n_dofs=n_dofs)
+    def __init__(self, max_step=0.01, vectorized=True, **kwargs):
+        super(DeterministicTrajectory, self).__init__(**kwargs)
         self.integrate = lambda init_dofs, n_steps: RK45(self.take_step,
                                                          0,
                                                          init_dofs,
@@ -92,8 +106,8 @@ class DeterministicTrajectory(Trajectory):
 
 
 class StochasticTrajectory(Trajectory):
-    def __init__(self, step_size=0.001, vectorized=True, n_dofs=3):
-        super(StochasticTrajectory, self).__init__(n_dofs=n_dofs)
+    def __init__(self, step_size=0.001, vectorized=True, **kwargs):
+        super(StochasticTrajectory, self).__init__(**kwargs)
         self.step_size = step_size
         self.integrate = lambda init_dofs, n_steps: EulerMaruyama(
             self.take_step,

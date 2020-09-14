@@ -8,32 +8,22 @@ Year: 2020
 """
 import numpy as np
 
-class NetworkTopology(object):
-    def __init__(self, n_nodes, coupling_matrix, init_state=None):
-        self.n_nodes = n_nodes
-        self.coupling_matrix = coupling_matrix
 
-        if (init_state is None):
-            init_state = np.random.uniform(n_nodes)
+def get_gaussian_topology(n_nodes: int,
+                          coupling: float,
+                          self_interaction: bool = False):
+    """
+    :param n_nodes: the number of nodes in the network
+    :param coupling: the final couplings are drawn from a normal distribution
+    with variation $g^2/N$, where $g$ is the coupling and $N$ is the number of nodes.
+    :param self_interaction:
 
-        self.state = init_state
+    """
+    coupling_matrix = np.random.normal(scale=coupling**2 / n_nodes,
+                                       size=(n_nodes, n_nodes))
 
-    def update(self, state):
-        self.state = state
+    if not self_interaction:
+        diagonal = np.arange(n_nodes)
+        coupling_matrix[diagonal, diagonal] = 0.
 
-class GaussianRandomTopology(NetworkTopology):
-    def __init__(self, n_nodes, coupling, self_interaction=False, init_state=None):
-        """
-        :param n_nodes: the number of nodes in the network
-        :param coupling: the final couplings are drawn from a normal distribution
-        with variation $g^2/N$, where $g$ is the coupling and $N$ is the number of nodes.
-        :param self_interaction:
-
-        """
-        coupling_matrix = np.random.normal(scale=coupling ** 2 / n_nodes, size=(n_nodes, n_nodes))
-
-        if not self_interaction:
-            diagonal = np.arange(n_nodes)
-            coupling_matrix[diagonal, diagonal] = 0.
-
-        super(GaussianRandomTopology, self).__init__(n_nodes, coupling_matrix, init_state)
+    return coupling_matrix

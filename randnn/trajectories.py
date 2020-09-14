@@ -16,7 +16,8 @@ from tqdm import tqdm
 from scipy.integrate import RK45
 from .integrate import EulerMaruyama
 
-class Trajectory(object):
+
+class Trajectory:
     """
 
     A wrapper for an ODESolver to integrate formulas specified in children.
@@ -28,7 +29,7 @@ class Trajectory(object):
     def __str__(self):
         return "trajectory-dof{}".format(self.n_dofs)
 
-    def take_step(self, t, pos):
+    def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
     def run(self, init_dofs=None, n_burn_in=500, n_steps=10000, max_step=0.02):
@@ -47,11 +48,19 @@ class Trajectory(object):
 
         return state
 
-    def run_or_load(self, filename=None, init_dofs=None, n_burn_in=500, n_steps=10000, max_step=0.02):
+    def run_or_load(self,
+                    filename=None,
+                    init_dofs=None,
+                    n_burn_in=500,
+                    n_steps=10000,
+                    max_step=0.02):
         trajectory = self.load(filename)
 
         if trajectory.size == 0:
-            trajectory =  self.gen_data(init_dofs=init_dofs, n_burn_in=n_burn_in, n_steps=n_steps, max_step=max_step)
+            trajectory = self.gen_data(init_dofs=init_dofs,
+                                       n_burn_in=n_burn_in,
+                                       n_steps=n_steps,
+                                       max_step=max_step)
 
         return trajectory
 
@@ -70,16 +79,30 @@ class Trajectory(object):
         else:
             return np.array([])
 
+
 class DeterministicTrajectory(Trajectory):
     def __init__(self, max_step=0.01, vectorized=True, n_dofs=3):
         super(DeterministicTrajectory, self).__init__(n_dofs=n_dofs)
-        self.integrate = lambda init_dofs, n_steps: RK45(self.take_step, 0, init_dofs, n_steps, max_step=max_step, vectorized=vectorized)
+        self.integrate = lambda init_dofs, n_steps: RK45(self.take_step,
+                                                         0,
+                                                         init_dofs,
+                                                         n_steps,
+                                                         max_step=max_step,
+                                                         vectorized=vectorized)
+
 
 class StochasticTrajectory(Trajectory):
     def __init__(self, step_size=0.001, vectorized=True, n_dofs=3):
         super(StochasticTrajectory, self).__init__(n_dofs=n_dofs)
         self.step_size = step_size
-        self.integrate = lambda init_dofs, n_steps: EulerMaruyama(self.take_step, self.get_random_step, 0, init_dofs, n_steps, step_size=step_size, vectorized=vectorized)
+        self.integrate = lambda init_dofs, n_steps: EulerMaruyama(
+            self.take_step,
+            self.get_random_step,
+            0,
+            init_dofs,
+            n_steps,
+            step_size=step_size,
+            vectorized=vectorized)
 
-    def get_random_step(self, t, pos):
+    def get_random_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError

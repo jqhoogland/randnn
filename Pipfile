@@ -14,6 +14,7 @@ matplotlib = "*"
 data-science-types = "*"
 scipy = "*"
 jupyter = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.8"

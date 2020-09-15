@@ -30,7 +30,7 @@ class ContinuousNN(DeterministicTrajectory):
 
         super().__init__(**kwargs)
 
-        if coupling_matrix:
+        if not coupling_matrix is None:
             self.coupling_matrix = coupling_matrix
 
         elif coupling_strength:
@@ -46,5 +46,26 @@ class ContinuousNN(DeterministicTrajectory):
     def activation(state: np.ndarray) -> np.ndarray:
         return np.tanh(state)
 
+    @staticmethod
+    def activation_prime(state: np.ndarray) -> np.ndarray:
+        return np.power(1. / np.cosh(state), 2)
+
+    def jacobian(self, state: np.ndarray) -> np.ndarray:
+        return -np.eye(
+            self.n_dofs) + self.coupling_matrix * self.activation_prime(state)
+
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         return -state + np.dot(self.coupling_matrix, self.activation(state))
+
+
+# ------------------------------------------------------------
+# TESTING
+
+
+def test_jacobian_shape():
+    coupling_matrix = np.eye(3, k=1)
+    state = np.zeros(3)
+    cont_nn = ContinuousNN(coupling_matrix=coupling_matrix)
+    assert np.all(
+        np.isclose(cont_nn.jacobian(state),
+                   np.array([[-1, 1, 0], [0, -1, 1], [0, 0, -1]])))

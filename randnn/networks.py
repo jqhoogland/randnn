@@ -32,6 +32,7 @@ class ContinuousNN(DeterministicTrajectory):
 
         if not coupling_matrix is None:
             self.coupling_matrix = coupling_matrix
+            coupling_strength = np.std(coupling_matrix) * np.sqrt(self.n_dofs)
 
         elif coupling_strength:
             self.coupling_matrix = get_gaussian_topology(
@@ -41,6 +42,12 @@ class ContinuousNN(DeterministicTrajectory):
             raise ValueError(
                 "Either `coupling_matrix` or `coupling_strength` must be provided."
             )
+
+        self.coupling_strength = coupling_strength
+
+    def __repr__(self):
+        return "<ContinuousNN coupling_strength:{} n_dofs:{}>".format(
+            self.coupling_strength, self.n_dofs)
 
     @staticmethod
     def activation(state: np.ndarray) -> np.ndarray:

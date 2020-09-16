@@ -8,7 +8,7 @@ Author: Jesse Hoogland
 Year: 2020
 
 """
-import os
+import os, hashlib, pickle
 from typing import List, Optional
 
 import numpy as np
@@ -50,6 +50,10 @@ class Trajectory:
     def __str__(self):
         return "trajectory-dof{}".format(self.n_dofs)
 
+    @property
+    def filename(self):
+        return hashlib.md5(self.__repr__().encode('utf-8')).hexdigest()
+
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
@@ -79,35 +83,42 @@ class Trajectory:
         return state
 
     def run_or_load(self,
-                    filename=None,
-                    init_dofs=None,
-                    n_burn_in=500,
-                    n_steps=10000,
-                    max_step=0.02):
-        trajectory = self.load(filename)
+                    filename: Optional[str] = None,
+                    n_burn_in: int = 500,
+                    n_steps: int = 10000,
+                    return_jacobians: bool = False):
 
-        if trajectory.size == 0:
-            trajectory = self.gen_data(init_dofs=init_dofs,
-                                       n_burn_in=n_burn_in,
-                                       n_steps=n_steps,
-                                       max_step=max_step)
+        res = self.load(filename)
 
-        return trajectory
+        if not res:
+            res = self.run(n_burn_in=n_burn_in,
+                           n_steps=n_steps,
+                           return_jacobians=return_jacobians)
 
-    def save(self, trajectory, filename=None):
+        return res
+
+    def save(self,
+             trajectory: np.ndarray,
+             jacobians: Optional[np.ndarray] = None,
+             filename: Optional[str] = None):
+
         if filename is None:
-            filename = "./saves/{}.npy".format(self.__str__())
+            filename = "./saves/{}.pickle".format(self.filename)
 
-        np.save(filename, trajectory)
+        with open(filename, "wb+") as handle:
+            pickle.dump([trajectory, jacobians],
+                        handle,
+                        protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load(self, filename=None):
+    def load(self, filename: Optional[str] = None):
         if filename is None:
-            filename = "./saves/{}.npy".format(self.__str__())
+            filename = "./saves/{}.pickle".format(self.filename)
 
         if os.path.isfile(filename):
-            return np.load(filename)
-        else:
-            return np.array([])
+            with open(filename, 'rb') as handle:
+                return pickle.load(handle)
+
+        return []
 
 
 class DeterministicTrajectory(Trajectory):

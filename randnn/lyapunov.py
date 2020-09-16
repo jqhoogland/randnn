@@ -36,7 +36,7 @@ def get_lyapunov_spectrum(jacobians: np.ndarray) -> np.ndarray:
     qs = np.zeros(evolution.shape)
     rs = np.zeros(evolution.shape)
     for t, state in tqdm(enumerate(evolution), desc="Decomposing evolution"):
-        print(state)
+        #print(state)
         qs[t, :, :], rs[t, :, :] = np.linalg.qr(state)
 
     # The Lyapunov exponents are the time-averaged logarithms of the on-diagonal (i.e scaling)

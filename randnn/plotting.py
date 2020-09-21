@@ -70,6 +70,8 @@ def plot_random_matrix_spectrum(matrix, radius=None):
 
     plt.axis("square")
     ax.add_patch(circle)
+    ax.axvline(x=1., linestyle="--")
+
     ax.set_title("Eigenvalue spectrum of the connectivity matrix $J_{ij}$")
     ax.set_ylabel("Complex part")
     ax.set_xlabel("Real part")
@@ -78,6 +80,7 @@ def plot_random_matrix_spectrum(matrix, radius=None):
 
 def plot_lyapunov_spectrum(lyapunov_spectrum, title="Lyapunov spectrum"):
     plt.plot(lyapunov_spectrum)
+    ax.axvline(y=0., linestyle="--")
     plt.title(title)
     plt.ylabel("Lyapunov exponent")
     plt.xlabel("Index (decreasing order)")

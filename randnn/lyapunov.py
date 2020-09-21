@@ -49,3 +49,21 @@ def get_lyapunov_spectrum(jacobians: np.ndarray) -> np.ndarray:
     lyapunov_exponents_ordered = np.sort(lyapunov_exponents)[::-1]
 
     return lyapunov_exponents_ordered
+
+
+def get_attractor_dimension(lyapunov_spectrum: np.ndarray) -> float:
+    """
+    The attractor dimensionality is given by the interpolated number of Lyapunov exopnents that sum to $0$
+
+    This assumes that lyapunov_spectrum is already in decreasing order.
+    """
+    k = 0
+    _sum = 0
+
+    while _sum >= 0:
+        _sum += lyapunov_spectrum[k]
+        k += 1
+
+    _sum -= lyapunov_spectrum[k - 1]
+
+    return k + _sum / np.abs(lyapunov_spectrum[k])  # Python counts from 0!

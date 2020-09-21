@@ -8,13 +8,27 @@ Author: Jesse Hoogland
 Year: 2020
 
 """
-import os, hashlib, pickle
-from typing import List, Optional
+import os, hashlib
+from typing import List, Optional, Tuple
 
 import numpy as np
 from tqdm import tqdm
 from scipy.integrate import RK45
 from .integrate import EulerMaruyama
+
+
+def random_orthonormal(shape: Tuple[int, int]):
+    # Source: https://stackoverflow.com/a/38430739/1701415
+    a = np.random.randn(*shape)
+    q, r = np.linalg.qr(a)
+    return q @ q.T
+
+
+def qr_positive(a: np.ndarray, *args,
+                **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+    q, r = np.linalg.qr(a, *args, **kwargs)
+    diagonal_signs = np.sign(np.diagonal(r))
+    return q * diagonal_signs, diagonal_signs * r  # TODO: make sure these are aligned correctly
 
 
 class Trajectory:
@@ -52,7 +66,7 @@ class Trajectory:
 
     @property
     def filename(self):
-        return hashlib.md5(self.__repr__().encode('utf-8')).hexdigest()
+        hashlib.md5(self.__repr__().encode('utf-8')).hexdigest()
 
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
@@ -60,65 +74,86 @@ class Trajectory:
     def jacobian(self, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
-    def run(self,
-            n_burn_in: int = 500,
-            n_steps: int = 10000,
-            return_jacobians: bool = False):
+    def get_lyapunov_spectrum(self,
+                              trajectory: np.ndarray,
+                              n_burn_in: int = 100) -> np.ndarray:
+        # Decompose the growth rates using the QR decomposition
+        t_ons = 10  # TODO: actually compute this
+
+        n_samples = trajectory.shape[0] // t_ons
+        lyapunov_spectrum = np.zeros(self.n_dofs)
+        q = random_orthonormal([self.n_dofs, self.n_dofs])
+        r = np.zeros([self.n_dofs, self.n_dofs])
+
+        for t, state in tqdm(enumerate(trajectory[:n_burn_in]),
+                             desc="Burning-in Osedelets matrix"):
+            q = self.jacobian(state) @ q
+            if (t % t_ons):
+                q, _ = np.linalg.qr(q)
+
+        for t, state in tqdm(enumerate(trajectory[n_burn_in:]),
+                             desc="QR-Decomposition of trajectory"):
+            q = self.jacobian(state) @ q
+            if (t % t_ons):
+                q, r = qr_positive(q, mode="complete")
+                #print(q.shape, r.shape)
+                lyapunov_spectrum += np.log(np.diagonal(r))
+
+        # The Lyapunov exponents are the time-averaged logarithms of the on-diagonal (i.e scaling)
+        # elements of R
+        lyapunov_spectrum /= n_samples
+
+        # We order these exponents in decreasing order
+        lyapunov_spectrum_ordered = np.sort(lyapunov_spectrum)[::-1]
+
+        return lyapunov_spectrum_ordered
+
+    def run(self, n_burn_in: int = 500, n_steps: int = 10000):
 
         integrator = self.integrate(self.init_state, n_steps)
         state = np.zeros([n_steps, self.n_dofs])
-        jacobians = np.zeros([n_steps, self.n_dofs, self.n_dofs])
 
         for _ in tqdm(range(n_burn_in), desc="Burning in"):
             integrator.step()
 
         for t in tqdm(range(n_steps), desc="Generating samples: "):
             state[t, :] = np.array(integrator.y)
-            jacobians[t, :, :] = self.jacobian(integrator.y)
             integrator.step()
-
-        if return_jacobians:
-            return state, jacobians
 
         return state
 
     def run_or_load(self,
                     filename: Optional[str] = None,
                     n_burn_in: int = 500,
-                    n_steps: int = 10000,
-                    return_jacobians: bool = False):
+                    n_steps: int = 10000):
 
         res = self.load(filename)
 
-        if not res:
-            res = self.run(n_burn_in=n_burn_in,
-                           n_steps=n_steps,
-                           return_jacobians=return_jacobians)
+        if res.size:
+            res = self.run(
+                n_burn_in=n_burn_in,
+                n_steps=n_steps,
+            )
 
         return res
 
     def save(self,
              trajectory: np.ndarray,
-             jacobians: Optional[np.ndarray] = None,
-             filename: Optional[str] = None):
+             filename: Optional[str] = None) -> None:
 
         if filename is None:
-            filename = "./saves/{}.pickle".format(self.filename)
+            filename = "./saves/{}.npy".format(self.filename)
 
-        with open(filename, "wb+") as handle:
-            pickle.dump([trajectory, jacobians],
-                        handle,
-                        protocol=pickle.HIGHEST_PROTOCOL)
+        return np.save(filename, trajectory)
 
-    def load(self, filename: Optional[str] = None):
+    def load(self, filename: Optional[str] = None) -> np.ndarray:
         if filename is None:
-            filename = "./saves/{}.pickle".format(self.filename)
+            filename = "./saves/{}.npy".format(self.filename)
 
         if os.path.isfile(filename):
-            with open(filename, 'rb') as handle:
-                return pickle.load(handle)
+            return np.load(filename)
 
-        return []
+        return np.array([])
 
 
 class DeterministicTrajectory(Trajectory):

@@ -7,6 +7,7 @@ Year: 2020
 
 """
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def get_gaussian_topology(n_nodes: int,
@@ -28,3 +29,15 @@ def get_gaussian_topology(n_nodes: int,
         coupling_matrix[diagonal, diagonal] = 0.
 
     return coupling_matrix
+
+
+def plot_random_matrix_spectrum(matrix):
+    N, _ = matrix.shape  # Assuming square
+    radius = np.std(matrix) * np.sqrt(N)
+    eigs, _ = np.linalg.eigh()
+
+    fix, ax = plt.subplots
+    ax.plot(eigs.real, eigs.imag)
+    circle = plt.Circle((0, 0), radius, color=None, edgecolor='b')
+    ax.add_artist(circle)
+    plt.show()

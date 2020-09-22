@@ -83,6 +83,14 @@ class Trajectory:
                               trajectory: np.ndarray,
                               n_burn_in: int = 0,
                               n_exponents: Optional[int] = None) -> np.ndarray:
+        """
+        :param trajectory: the discretized samples, with shape (n_timesteps, n_dofs),
+        :param n_burn_in: the number of initial transients to discard
+        :param n_exponents: the number of lyapunov exponents to calculate (in decreasing order).
+            Leave this blank to compute the full spectrum.
+
+        TODO: Iteratively compute the optimal `t_ons` (see below)
+        """
 
         if n_exponents is None:
             n_exponents = self.n_dofs
@@ -101,14 +109,14 @@ class Trajectory:
         q = random_orthonormal([self.n_dofs, n_exponents])
         r = np.zeros([n_exponents, n_exponents])
 
-        # First, we burn in so Q can relax to the Osedelets matrix
+        # Burn in so Q can relax to the Osedelets matrix
         for t, state in tqdm(enumerate(trajectory[:n_burn_in]),
                              desc="Burning-in Osedelets matrix"):
             q = self.jacobian(state) @ q
             if (t % t_ons == 0):
                 q, _ = qr_positive(q)
 
-        # Then, we run the actual decomposition on theremaining steps
+        # Run the actual decomposition on the remaining steps
         for t, state in tqdm(enumerate(trajectory[n_burn_in:]),
                              desc="QR-Decomposition of trajectory"):
             logging.info("Jacobian, scale: %s",

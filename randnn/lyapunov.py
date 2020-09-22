@@ -9,9 +9,9 @@ See [@wolf1985]
 
 
 """
-import numpy as np
 from typing import Tuple
 
+import numpy as np
 from tqdm import tqdm
 
 
@@ -22,33 +22,33 @@ def random_orthonormal(shape: Tuple[int, int]):
     return Q @ Q.T
 
 
-def get_lyapunov_spectrum(jacobians: np.ndarray) -> np.ndarray:
-    n_timesteps, n_dofs, _ = jacobians.shape
+# def get_lyapunov_spectrum(jacobians: np.ndarray) -> np.ndarray:
+#     n_timesteps, n_dofs, _ = jacobians.shape
 
-    # Evolve an initially orthonormal system by repeated application of the Jacobian
-    evolution = np.zeros((n_timesteps + 1, n_dofs, n_dofs))
-    evolution[0, :, :] = random_orthonormal((n_dofs, n_dofs))
-    for t, jacobian in tqdm(enumerate(jacobians),
-                            desc="Computing linear evolution"):
-        evolution[t + 1, :, :] = jacobian @ evolution[t]
+#     # Evolve an initially orthonormal system by repeated application of the Jacobian
+#     evolution = np.zeros((n_timesteps + 1, n_dofs, n_dofs))
+#     evolution[0, :, :] = random_orthonormal((n_dofs, n_dofs))
+#     for t, jacobian in tqdm(enumerate(jacobians),
+#                             desc="Computing linear evolution"):
+#         evolution[t + 1, :, :] = jacobian @ evolution[t]
 
-    # Decompose the growth rates using the QR decomposition
-    qs = np.zeros(evolution.shape)
-    rs = np.zeros(evolution.shape)
-    for t, state in tqdm(enumerate(evolution), desc="Decomposing evolution"):
-        #print(state)
-        qs[t, :, :], rs[t, :, :] = np.linalg.qr(state)
+#     # Decompose the growth rates using the QR decomposition
+#     qs = np.zeros(evolution.shape)
+#     rs = np.zeros(evolution.shape)
+#     for t, state in tqdm(enumerate(evolution), desc="Decomposing evolution"):
+#         #print(state)
+#         qs[t, :, :], rs[t, :, :] = np.linalg.qr(state)
 
-    # The Lyapunov exponents are the time-averaged logarithms of the on-diagonal (i.e scaling)
-    # elements of R
-    lyapunov_exponents = np.mean(np.log(
-        np.abs(np.diagonal(rs, axis1=1, axis2=2))),
-                                 axis=0)
+#     # The Lyapunov exponents are the time-averaged logarithms of the on-diagonal (i.e scaling)
+#     # elements of R
+#     lyapunov_exponents = np.mean(np.log(
+#         np.abs(np.diagonal(rs, axis1=1, axis2=2))),
+#                                  axis=0)
 
-    # We order these exponents in decreasing order
-    lyapunov_exponents_ordered = np.sort(lyapunov_exponents)[::-1]
+#     # We order these exponents in decreasing order
+#     lyapunov_exponents_ordered = np.sort(lyapunov_exponents)[::-1]
 
-    return lyapunov_exponents_ordered
+#     return lyapunov_exponents_ordered
 
 
 def get_attractor_dimension(lyapunov_spectrum: np.ndarray) -> float:
@@ -60,7 +60,7 @@ def get_attractor_dimension(lyapunov_spectrum: np.ndarray) -> float:
     k = 0
     _sum = 0
 
-    while _sum >= 0:
+    while _sum >= 0 and k < lyapunov_spectrum.size - 1:
         _sum += lyapunov_spectrum[k]
         k += 1
 

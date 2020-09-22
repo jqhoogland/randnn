@@ -43,6 +43,8 @@ class ContinuousNN(DeterministicTrajectory):
                 "Either `coupling_matrix` or `coupling_strength` must be provided."
             )
 
+        self.timestep = kwargs.get("max_step", 0.01)
+
         self.coupling_strength = coupling_strength
 
     def __repr__(self):
@@ -58,11 +60,12 @@ class ContinuousNN(DeterministicTrajectory):
         return np.power(1. / np.cosh(state), 2)
 
     def jacobian(self, state: np.ndarray) -> np.ndarray:
-        return -np.eye(
-            self.n_dofs) + self.coupling_matrix * self.activation_prime(state)
+        return -(1 - self.timestep) * np.eye(
+            self.n_dofs) + self.timestep * np.diag(
+                self.activation_prime(state)) @ self.coupling_matrix
 
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
-        return -state + np.dot(self.coupling_matrix, self.activation(state))
+        return -state + self.coupling_matrix @ self.activation(state)
 
 
 # ------------------------------------------------------------
@@ -72,7 +75,13 @@ class ContinuousNN(DeterministicTrajectory):
 def test_jacobian_shape():
     coupling_matrix = np.eye(3, k=1)
     state = np.zeros(3)
-    cont_nn = ContinuousNN(coupling_matrix=coupling_matrix)
-    assert np.all(
-        np.isclose(cont_nn.jacobian(state),
-                   np.array([[-1, 1, 0], [0, -1, 1], [0, 0, -1]])))
+    cont_nn = ContinuousNN(coupling_matrix=coupling_matrix, n_dofs=3)
+    assert np.allclose(cont_nn.jacobian(state),
+                       np.array([[-1, 1, 0], [0, -1, 1], [0, 0, -1]]))
+
+
+def test_jacobian_saturation():
+    coupling_matrix = np.eye(3, k=1)
+    state = np.ones(3) * 100000000.
+    cont_nn = ContinuousNN(coupling_matrix=coupling_matrix, n_dofs=3)
+    assert np.allclose(cont_nn.jacobian(state), -np.eye(3))

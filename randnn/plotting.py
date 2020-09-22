@@ -60,7 +60,7 @@ def plot_random_matrix_spectrum(matrix, radius=None):
 
     #print(eigs)
     fix, ax = plt.subplots()
-    ax.scatter(eigs.real, eigs.imag, c=(0, 0, 0), s=2, alpha=0.5)
+    ax.scatter(eigs.real, eigs.imag, color=(0, 0, 0), s=2, alpha=0.5)
     circle = patches.Circle((0, 0),
                             radius,
                             fill=False,
@@ -80,7 +80,7 @@ def plot_random_matrix_spectrum(matrix, radius=None):
 
 def plot_lyapunov_spectrum(lyapunov_spectrum, title="Lyapunov spectrum"):
     plt.plot(lyapunov_spectrum)
-    ax.axvline(y=0., linestyle="--")
+    plt.axhline(y=0., linestyle="--")
     plt.title(title)
     plt.ylabel("Lyapunov exponent")
     plt.xlabel("Index (decreasing order)")

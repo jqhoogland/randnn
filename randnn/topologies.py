@@ -31,13 +31,11 @@ def get_gaussian_topology(n_nodes: int,
     return coupling_matrix
 
 
-def plot_random_matrix_spectrum(matrix):
-    N, _ = matrix.shape  # Assuming square
-    radius = np.std(matrix) * np.sqrt(N)
-    eigs, _ = np.linalg.eigh()
+def test_get_gaussian_topology():
+    coupling_matrix = get_gaussian_topology(10000, 10., self_interaction=True)
+    assert np.isclose(np.std(coupling_matrix), 0.1, rtol=0.001)
 
-    fix, ax = plt.subplots
-    ax.plot(eigs.real, eigs.imag)
-    circle = plt.Circle((0, 0), radius, color=None, edgecolor='b')
-    ax.add_artist(circle)
-    plt.show()
+
+def test_gaussian_topology_diagonal():
+    coupling_matrix = get_gaussian_topology(10000, 10., self_interaction=False)
+    assert np.allclose(np.diag(coupling_matrix), np.zeros(10000))

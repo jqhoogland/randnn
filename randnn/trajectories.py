@@ -15,22 +15,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.integrate import RK45
 from .integrate import EulerMaruyama
-from .utils import np_cache
-
-
-def qr_positive(a: np.ndarray, *args,
-                **kwargs) -> Tuple[np.ndarray, np.ndarray]:
-    q, r = np.linalg.qr(a, *args, **kwargs)
-    diagonal_signs = np.sign(np.diagonal(r))
-    return q @ np.diag(diagonal_signs), np.diag(
-        diagonal_signs) @ r  # TODO: make sure these are aligned correctly
-
-
-def random_orthonormal(shape: Tuple[int, int]):
-    # Source: https://stackoverflow.com/a/38430739/1701415
-    a = np.random.randn(*shape)
-    q, r = qr_positive(a)
-    return q
+from .utils import np_cache, qr_positive, random_orthonormal
 
 
 class Trajectory:
@@ -178,25 +163,3 @@ class StochasticTrajectory(Trajectory):
 
     def get_random_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
-
-
-def test_qr_positive():
-    a = np.random.uniform(size=(100, 50))
-    q, r = qr_positive(a)
-
-    logging.debug(a.shape, q.shape, r.shape)
-    logging.debug(a, q @ r)
-
-    assert np.allclose(a, q @ r)
-    assert q.shape == (100, 50)
-    assert np.allclose(q.T @ q, np.eye(50))
-    assert r.shape == (50, 50)
-    assert np.allclose(a, q @ r)
-    assert np.all(np.diagonal(r) >= 0)
-
-
-def test_random_orthonormal():
-    q = random_orthonormal((100, 50))
-
-    assert q.shape == (100, 50)
-    assert np.allclose(q.T @ q, np.eye(50))

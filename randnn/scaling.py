@@ -6,7 +6,9 @@ Author: Jesse Hoogland
 Year: 2020
 
 """
-from typing import Callable, List, Any
+import numpy as np
+
+from typing import Callable, List, Any, Optional
 from .trajectories import Trajectory
 
 

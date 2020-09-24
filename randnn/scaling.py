@@ -9,6 +9,7 @@ Year: 2020
 import numpy as np
 
 from typing import Callable, List, Any, Optional
+from .networks import ContinuousNN
 from .trajectories import Trajectory
 
 
@@ -41,3 +42,30 @@ def scaling_analysis(scaling_kwargs: List[dict],
         map(lambda scaling_kwarg: (list(scaling_kwarg.values()))[0],
             scaling_kwargs))
     return np.concatenate([np.array([scaling_vars]).T, results], axis=1)
+
+
+def scaling_n_dofs():
+    def init_fn(n_steps=1000, n_burn_in=200, t_ons=10, **kwargs):
+        system = ContinuousNN(**kwargs)
+        trajectory = system.run(n_steps=n_steps, n_burn_in=n_burn_in)
+
+        return system.get_lyapunov_spectrum(trajectory, t_ons=t_ons)
+
+    analysis_fns = [get_attractor_dimension]
+    scaling_kwargs = [{
+        "n_dofs": 10
+    }, {
+        "n_dofs": 100
+    }, {
+        "n_dofs": 500
+    }, {
+        "n_dofs": 1000
+    }, {
+        "n_dofs": 2000
+    }, {
+        "n_dofs": 5000
+    }]
+
+    init_kwargs = {"coupling_strength": COUPLING_STRENGTH, "t_ons": 200}
+
+    return scaling_analysis(scaling_kwargs, init_fn, analysis_fns, init_kwargs)

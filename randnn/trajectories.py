@@ -15,6 +15,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.integrate import RK45
 from .integrate import EulerMaruyama
+from .utils import np_cache
 
 
 def qr_positive(a: np.ndarray, *args,
@@ -71,7 +72,7 @@ class Trajectory:
 
     @property
     def filename(self):
-        hashlib.md5(self.__repr__().encode('utf-8')).hexdigest()
+        return hashlib.md5(self.__repr__().encode('utf-8')).hexdigest()
 
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
@@ -79,17 +80,19 @@ class Trajectory:
     def jacobian(self, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
+    @np_cache(dir_path="./saves/lyapunov/", file_prefix="spectrum-")
     def get_lyapunov_spectrum(self,
                               trajectory: np.ndarray,
                               n_burn_in: int = 0,
-                              n_exponents: Optional[int] = None) -> np.ndarray:
+                              n_exponents: Optional[int] = None,
+                              t_ons: int = 10) -> np.ndarray:
         """
         :param trajectory: the discretized samples, with shape (n_timesteps, n_dofs),
         :param n_burn_in: the number of initial transients to discard
         :param n_exponents: the number of lyapunov exponents to calculate (in decreasing order).
             Leave this blank to compute the full spectrum.
 
-        TODO: Iteratively compute the optimal `t_ons` (see below)
+        TODO: Iteratively compute the optimal `t_ons`
         """
 
         if n_exponents is None:
@@ -101,7 +104,6 @@ class Trajectory:
         lyapunov_spectrum = np.zeros(n_exponents)
 
         # We renormalize (/sample) only once every `t_ons` steps
-        t_ons = 10  # TODO: actually compute this
         n_samples = (trajectory.shape[0] - n_burn_in) // t_ons
 
         # q will update at each timestep
@@ -119,23 +121,13 @@ class Trajectory:
         # Run the actual decomposition on the remaining steps
         for t, state in tqdm(enumerate(trajectory[n_burn_in:]),
                              desc="QR-Decomposition of trajectory"):
-            logging.info("Jacobian, scale: %s",
-                         np.mean(np.abs(self.jacobian(state))))
             q = self.jacobian(state) @ q
-            logging.info(np.mean(np.abs(q)))
 
             if (t % t_ons == 0):
-                logging.debug("Q diagonal: %s", np.diagonal(q[::50]))
                 q, r = qr_positive(q)
 
                 r_diagonal = np.copy(np.diag(r))
                 r_diagonal[r_diagonal == 0] = 1
-
-                logging.debug("Q shape: %s", q.shape)
-                logging.debug("R shape: %s", r.shape)
-                logging.info("R: %s", r_diagonal[::20])
-                logging.info("Log R: %s", np.log(r_diagonal[::20]))
-                logging.info("Spectrum: %s", lyapunov_spectrum[::20])
 
                 lyapunov_spectrum += np.log(r_diagonal)
 
@@ -145,6 +137,7 @@ class Trajectory:
 
         return lyapunov_spectrum
 
+    @np_cache(dir_path="./saves/trajectories/", file_prefix="trajectory-")
     def run(self, n_burn_in: int = 500, n_steps: int = 10000):
 
         integrator = self.integrate(self.init_state, n_steps)
@@ -166,7 +159,7 @@ class Trajectory:
 
         res = self.load(filename)
 
-        if res.size:
+        if not np.any(res):
             res = self.run(
                 n_burn_in=n_burn_in,
                 n_steps=n_steps,

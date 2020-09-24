@@ -131,3 +131,5 @@ dmypy.json
 saves/**
 
 **.\#**
+
+**.DS_Store**

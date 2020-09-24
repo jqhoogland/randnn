@@ -24,7 +24,6 @@ def plot_trajectory_avg(trajectory):
     plt.errorbar(np.arange(avg_trajectory.size),
                  avg_trajectory,
                  yerr=stdev_trajectory)
-    plt.show()
 
 
 def plot_trajectory_samples(trajectory: np.ndarray,
@@ -47,7 +46,6 @@ def plot_trajectory_samples(trajectory: np.ndarray,
     plt.title("Sample neural trajectories")
     plt.xlabel("Time ($\tau$)")
     plt.ylabel("Activity")
-    plt.show()
 
 
 def plot_random_matrix_spectrum(matrix, radius=None):
@@ -75,7 +73,6 @@ def plot_random_matrix_spectrum(matrix, radius=None):
     ax.set_title("Eigenvalue spectrum of the connectivity matrix $J_{ij}$")
     ax.set_ylabel("Complex part")
     ax.set_xlabel("Real part")
-    plt.show()
 
 
 def plot_lyapunov_spectrum(lyapunov_spectrum, title="Lyapunov spectrum"):
@@ -84,4 +81,3 @@ def plot_lyapunov_spectrum(lyapunov_spectrum, title="Lyapunov spectrum"):
     plt.title(title)
     plt.ylabel("Lyapunov exponent")
     plt.xlabel("Index (decreasing order)")
-    plt.show()

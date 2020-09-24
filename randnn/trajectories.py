@@ -163,3 +163,90 @@ class StochasticTrajectory(Trajectory):
 
     def get_random_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
+
+
+def downsample(rate: int = 10):
+    """
+    A function decorator that downsamples the result returned by that function.
+    Assumes the function returns a np.ndarray of the shape (n_samples, n_dofs).
+
+    :returns: a function which returns a downsampled array of shape (n_samples // rate, n_dofs)
+    """
+    def inner(func):
+        def wrapper(*args, **kwargs):
+            samples = func(*args, **kwargs)
+            return samples[::rate]
+
+        return wrapper
+
+    return inner
+
+
+def downsample_split(rate: int = 10):
+    """
+    A function decorator that downsamples the result returned by that function.
+    Assumes the function returns a np.ndarray of the shape (n_samples, n_dofs).
+
+    Instead of throwing away the intermediate entries, this creates a separate
+    downsampled chain for each possible starting point.
+
+    :returns: a function which returns a downsampled array of shape (rate, n_samples // rate, n_dofs)
+    """
+    def inner(func):
+        def wrapper(*args, **kwargs):
+            samples = func(*args, **kwargs)
+            n_downsamples = len(samples) // rate
+            downsamples = np.zeros((rate, n_downsamples, samples.shape[1]))
+
+            for i in range(rate):
+                downsamples[i, :, :] = samples[i::rate, :]
+
+            return downsamples
+
+        return wrapper
+
+    return inner
+
+
+def avg_over(key: str, axis: int = 0, include_std: bool = False):
+    """
+    A function decorator which averages a function over one of its given parameters.
+
+    To be used in conjunction with the above.
+
+    :param axis: the axis of the result to average over, defaults to 0, the first axis.
+    :param kwargs: should contain one keyword argument
+
+    e.g. A function is given an array [n_samples, n_timesteps, n_dofs].
+    This decorator performs that function n_samples times for the values [i, :, :] where i in n_samples.
+    """
+    def inner(func):
+        def wrapper(*args, **kwargs):
+            value = kwargs.pop(key)
+
+            # Make sure kwargs contains a suitable value for this key
+            if value is None:
+                raise ValueError(f"key {key} not in kwargs.")
+            elif not isinstance(value, np.ndarray):
+                raise TypeError(f"key {key} not a numpy array.")
+
+            if axis != 0:
+                np.swapaxes(value, 0, axis)
+
+            responses = []
+
+            for i in range(value.shape[0]):
+                avg_kwarg = {}
+                avg_kwarg[key] = value[i, :, :]
+                responses.append(func(*args, **avg_kwarg, **kwargs))
+
+            responses = np.array(responses)
+
+            if include_std:
+                return np.mean(responses, axis=0), np.std(responses, axis=axis)
+
+            return np.mean(responses, axis=0)
+
+        return wrapper
+
+    return inner

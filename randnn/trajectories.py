@@ -70,10 +70,6 @@ class Trajectory:
     def __str__(self):
         return "trajectory-dof{}".format(self.n_dofs)
 
-    @property
-    def filename(self):
-        return hashlib.md5(self.__repr__().encode('utf-8')).hexdigest()
-
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
@@ -151,39 +147,6 @@ class Trajectory:
             integrator.step()
 
         return state
-
-    def run_or_load(self,
-                    filename: Optional[str] = None,
-                    n_burn_in: int = 500,
-                    n_steps: int = 10000):
-
-        res = self.load(filename)
-
-        if not np.any(res):
-            res = self.run(
-                n_burn_in=n_burn_in,
-                n_steps=n_steps,
-            )
-
-        return res
-
-    def save(self,
-             trajectory: np.ndarray,
-             filename: Optional[str] = None) -> None:
-
-        if filename is None:
-            filename = "./saves/{}.npy".format(self.filename)
-
-        return np.save(filename, trajectory)
-
-    def load(self, filename: Optional[str] = None) -> np.ndarray:
-        if filename is None:
-            filename = "./saves/{}.npy".format(self.filename)
-
-        if os.path.isfile(filename):
-            return np.load(filename)
-
-        return np.array([])
 
 
 class DeterministicTrajectory(Trajectory):

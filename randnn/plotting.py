@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 from .transfer_operator import TransferOperator
 from .networks import ContinuousNN
+from .utils import *
 
 plt.rc('text', usetex=True)
 
@@ -101,12 +102,14 @@ def plot_eig_spectrum(spectrum,
     plt.ylabel("Absolute value.")
 
 
-def plot_t_imp_scaling(time_series: np.ndarray,
-                       eigval_idx: int,
-                       n_clusters_list: Sequence = [2, 10, 100], # TODO: 3.9 - Sequence[int]
-                       transition_times: Sequence = range(1, 30, 2),
-                       timestep: float = 1,
-                       labeling_method: str="kmeans"):
+def plot_t_imp_scaling(
+        time_series: np.ndarray,
+        eigval_idx: int,
+        n_clusters_list: Sequence = [2, 10,
+                                     100],    # TODO: 3.9 - Sequence[int]
+        transition_times: Sequence = range(1, 30, 2),
+        timestep: float = 1,
+        labeling_method: str = "kmeans"):
     """
     Plot the scaling of the implied timescale for different numbers of clusters.
 
@@ -128,8 +131,10 @@ def plot_t_imp_scaling(time_series: np.ndarray,
     for n_clusters in n_clusters_list:
         # We plot a single curve for every choice of number of clusters
         t_imps = np.zeros(len(transition_times))
-        for i, transition_time in tqdm(enumerate(transition_times),
-                                       desc="computing `t_imp` for `n_clusters = {}`".format(n_clusters)):
+        for i, transition_time in tqdm(
+                enumerate(transition_times),
+                desc="computing `t_imp` for `n_clusters = {}`".format(
+                    n_clusters)):
             # Each curve has its timescale sampled at the points defined in transition_timescales
             t_imps[i] = transfer_operator.get_t_imp(
                 time_series,
@@ -150,12 +155,21 @@ def plot_t_imp_scaling(time_series: np.ndarray,
     plt.legend()
     plt.show()
 
-def plot_max_l_with_g(gs: Sequence, n_dofs: int=100, timestep: float=0.1, n_steps: int=10000, n_burn_in: int=1000, t_ons: int=10):
+
+def plot_max_l_with_g(gs: Sequence,
+                      n_dofs: int = 100,
+                      timestep: float = 0.1,
+                      n_steps: int = 10000,
+                      n_burn_in: int = 1000,
+                      t_ons: int = 10):
     max_lyapunov_exps = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
-        logging.info("Deriving maximum lyapunov exponent for `g = {}`".format(g))
-        cont_nn = ContinuousNN(coupling_strength=g, n_dofs=n_dofs, max_step=timestep)
+        logging.info(
+            "Deriving maximum lyapunov exponent for `g = {}`".format(g))
+        cont_nn = ContinuousNN(coupling_strength=g,
+                               n_dofs=n_dofs,
+                               max_step=timestep)
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
         lyapunov_spectrum = cont_nn.get_lyapunov_spectrum(trajectory, t_ons=10)
         max_lyapunov_exps[i] = lyapunov_spectrum[0]
@@ -164,63 +178,84 @@ def plot_max_l_with_g(gs: Sequence, n_dofs: int=100, timestep: float=0.1, n_step
     plt.plot(gs, np.zeros(len(gs)), ":")
 
 
-def count_trivial_fixed_pts(trajectory: np.ndarray, atol: float =1e-3) -> int:
-    # 1. We transform the trajectory into a binary array according to
-    #    whether a point is within (=> 0)the given threshold of zeros or not (=> 1)
-    trajectory_bin = np.where(np.isclose(trajectory, 0., atol=atol), 0, 1)
-
-    # 2. We count the number of columns with only zeros.
-    trajectory_collapsed = np.sum(trajectory_bin, axis=1)
-    fixed_pt_neurons = np.where(trajectory_collapsed == 0, 1, 0)
-
-    return np.sum(fixed_pt_neurons)
-
-def count_fixed_pts(trajectory: np.ndarray, atol: float =1e-3) -> int:
-    # 1. We transform the trajectory into a binary array according to
-    #    whether a point is within (=> 0)the given threshold of its initial value or not (=> 1)
-
-    initial_state = np.array([trajectory[:, 0]]).T * np.ones(trajectory.shape)
-    trajectory_bin = np.where(np.isclose(trajectory, initial_state, atol=atol), 0, 1)
-    # TODO: Make sure the broadcasting works correctly here
-
-    # 2. We count the number of columns with only zeros.
-    trajectory_collapsed = np.sum(trajectory_bin, axis=1)
-    fixed_pt_neurons = np.where(trajectory_collapsed == 0, 1, 0)
-
-    return np.sum(fixed_pt_neurons)
-
-
-def plot_trivial_fixed_pt_with_g(gs: Sequence, n_dofs: int=100, timestep: float=0.1, n_steps: int=10000, n_burn_in: int=1000, t_ons: int=10, atol: float=1e-3):
+def plot_trivial_fixed_pt_with_g(gs: Sequence,
+                                 n_dofs: int = 100,
+                                 timestep: float = 0.1,
+                                 n_steps: int = 10000,
+                                 n_burn_in: int = 1000,
+                                 t_ons: int = 10,
+                                 atol: float = 1e-3):
     trivial_fixed_pt_proportions = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
         logging.info("Deriving fraction at 0 for `g = {}`".format(g))
-        cont_nn = ContinuousNN(coupling_strength=g, n_dofs=n_dofs, max_step=timestep)
+        cont_nn = ContinuousNN(coupling_strength=g,
+                               n_dofs=n_dofs,
+                               max_step=timestep)
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
-        trivial_fixed_pt_proportions[i] = count_trivial_fixed_pts(trajectory, atol) / n_dofs
+        trivial_fixed_pt_proportions[i] = count_trivial_fixed_pts(
+            trajectory.T, atol) / n_dofs
 
+    plt.title(
+        "The proportion of neurons at the trivial fixed point with coupling strength"
+    )
+    plt.xlabel("$g$, the coupling strength")
+    plt.ylabel("Fraction of neurons at the trivial fixed point")
     plt.plot(gs, trivial_fixed_pt_proportions)
 
-def plot_nontrivial_fixed_pt_with_g(gs: Sequence, n_dofs: int=100, timestep: float=0.1, n_steps: int=10000, n_burn_in: int=1000, t_ons: int=10, atol: float=1e-3):
+
+def plot_nontrivial_fixed_pt_with_g(gs: Sequence,
+                                    n_dofs: int = 100,
+                                    timestep: float = 0.1,
+                                    n_steps: int = 10000,
+                                    n_burn_in: int = 1000,
+                                    t_ons: int = 10,
+                                    atol: float = 1e-3):
     fixed_pt_proportions = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
         logging.info("Deriving fraction at 0 for `g = {}`".format(g))
-        cont_nn = ContinuousNN(coupling_strength=g, n_dofs=n_dofs, max_step=timestep)
+        cont_nn = ContinuousNN(coupling_strength=g,
+                               n_dofs=n_dofs,
+                               max_step=timestep)
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
-        n_trivial_fixed_pts = count_trivial_fixed_pts(trajectory, atol)
-        n_fixed_pts = count_fixed_pts(trajectory, atol)
+        n_trivial_fixed_pts = count_trivial_fixed_pts(trajectory.T, atol)
+        n_fixed_pts = count_fixed_pts(trajectory.T, atol)
 
         fixed_pt_proportions[i] = (n_fixed_pts - n_trivial_fixed_pts) / n_dofs
 
+    plt.title(
+        "The proportion of neurons at non-trivial fixed points with coupling strength"
+    )
+    plt.xlabel("$g$, the coupling strength")
+    plt.ylabel("Fraction of neurons at non-trivial fixed points")
     plt.plot(gs, fixed_pt_proportions)
 
-def test_count_trivial_fixed_pts():
-    trajectory = np.array([[0., 1., 2.], [0., 0., 0.], [0., 0., 0.], [1., 0., 0.]])
-    assert count_trivial_fixed_pts(trajectory) == 2
 
-def test_count_fixed_pts():
-    trajectory = np.array([[0., 1., 2.], [0., 0., 0.], [2., 2., 2.], [1., 1., 1.]])
-    assert count_fixed_pts(trajectory) == 3
+def plot_cycles_with_g(gs: Sequence,
+                       n_dofs: int = 100,
+                       timestep: float = 0.1,
+                       n_steps: int = 10000,
+                       n_burn_in: int = 1000,
+                       t_ons: int = 10,
+                       atol: float = 1e-3,
+                       max_n_steps: int=10000):
+    cycle_proportions = np.zeros(len(gs))
+
+    for i, g in enumerate(gs):
+        logging.info("Deriving fraction at 0 for `g = {}`".format(g))
+        cont_nn = ContinuousNN(coupling_strength=g,
+                               n_dofs=n_dofs,
+                               max_step=timestep)
+        trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
+
+        n_cycles = count_cycles(trajectory.T, atol, max_n_steps)
+        cycle_proportions[i] = n_cycles / n_dofs
+
+    plt.title(
+        "The proportion of neurons in a regular cycle with coupling strength")
+    plt.xlabel("$g$, the coupling strength")
+    plt.ylabel("Fraction of neurons in cycles")
+    plt.plot(gs, cycle_proportions)

@@ -14,14 +14,25 @@ import numpy as np
 import scipy.sparse as sp
 
 
-def np_cache(dir_path: str = "./saves/", file_prefix: Optional[str] = None):
+def np_cache(dir_path: str = "./saves/", file_prefix: Optional[str] = None, ignore: Optional[list]=[]):
     """
     A wrapper to load a previous response to a function (or to run the function and save the result otherwise).
     Assuming the function returns a np.ndarray as its response
     """
     def inner(func):
         def wrapper(*args, **kwargs):
-            params = (str(args) + str(kwargs)).encode('utf-8')
+            relevant_args = [ *args ]
+            relevant_kwargs = { **kwargs}
+
+            for ignore_arg in ignore:
+                if isinstance(ignore_arg, int):
+                    relevant_args.pop(ignore_arg)
+                else:
+                    del relevant_kwargs[ignore_arg]
+
+            relevant_args = tuple(relevant_args)
+            params = (str(relevant_args) + str(relevant_kwargs)).encode('utf-8')
+
             file_name = file_prefix + hashlib.md5(params).hexdigest() + ".npy"
             file_path = os.path.join(dir_path, file_name)
 
@@ -60,8 +71,14 @@ def random_orthonormal(shape: Tuple[int, int]):
     return q
 
 
-def eigsort(A, k, which="LM"):
-    eig_vals, eig_vecs = sp.linalg.eigs(A, k, which=which)
+def eigsort(A, k, which="LM", eig_method="sp"):
+    eig_vals, eig_vecs = None, None
+
+    if (eig_method == "sp"):
+        eig_vals, eig_vecs = sp.linalg.eigs(A, k, which=which)
+    elif (eig_method == "np"):
+        eig_vals, eig_vecs = np.linalg.eig(A)
+
     idx = np.argsort(eig_vals)[::-1]
     eig_vals = eig_vals[idx]
     eig_vecs = eig_vecs[:, idx]

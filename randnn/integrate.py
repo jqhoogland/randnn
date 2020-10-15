@@ -6,11 +6,15 @@ Year: 2020
 """
 import numpy as np
 from scipy.integrate import OdeSolver, DenseOutput
-from scipy.integrate._ivp.common import (validate_max_step, validate_tol, select_initial_step,
-                     norm, warn_extraneous, validate_first_step)
+from scipy.integrate._ivp.common import (validate_max_step, validate_tol,
+                                         select_initial_step, norm,
+                                         warn_extraneous, validate_first_step)
+
 
 def em_step(f, g, t, y, step_size):
-    return y + f(t, y) * step_size+ g(t, y) * np.random.normal(scale=np.sqrt(step_size))
+    return y + f(t, y) * step_size + g(
+        t, y) * np.random.normal(scale=np.sqrt(step_size))
+
 
 class EmDenseOutput(DenseOutput):
     """
@@ -39,6 +43,7 @@ class EmDenseOutput(DenseOutput):
 
         return y
 
+
 class EulerMaruyama(OdeSolver):
     """
 
@@ -47,10 +52,21 @@ class EulerMaruyama(OdeSolver):
     where dW_t is Weiner noise with standard deviation equal to d
 
     """
-
-    def __init__(self, f, g, t0, y0, t_bound, step_size=0.001, vectorized=False, **extraneous):
+    def __init__(self,
+                 f,
+                 g,
+                 t0,
+                 y0,
+                 t_bound,
+                 step_size=0.001,
+                 vectorized=False,
+                 **extraneous):
         warn_extraneous(extraneous)
-        super(EulerMaruyama, self).__init__(f, t0, y0, t_bound, vectorized,
+        super(EulerMaruyama, self).__init__(f,
+                                            t0,
+                                            y0,
+                                            t_bound,
+                                            vectorized,
                                             support_complex=True)
         self.g = g
         self.y_old = None
@@ -66,7 +82,7 @@ class EulerMaruyama(OdeSolver):
         y = self.y
 
         self.y_old = self.y
-        self.y = em_step(self.f, self.g, t, y, self._step_size)
+        self.y = em_step(self.fun, self.g, t, y, self._step_size)
         self.t = t + self._step_size
 
         return True, None

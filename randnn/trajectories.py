@@ -61,7 +61,7 @@ class Trajectory:
     def jacobian(self, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
-    @np_cache(dir_path="./saves/lyapunov/", file_prefix="spectrum-")
+    @np_cache(dir_path="./saves/lyapunov/", file_prefix="spectrum-", ignore=[1])
     def get_lyapunov_spectrum(self,
                               trajectory: np.ndarray,
                               n_burn_in: int = 0,
@@ -175,6 +175,8 @@ def downsample(rate: int = 10):
     def inner(func):
         def wrapper(*args, **kwargs):
             samples = func(*args, **kwargs)
+            if rate == 0:
+                return samples
             return samples[::rate]
 
         return wrapper
@@ -195,6 +197,10 @@ def downsample_split(rate: int = 10):
     def inner(func):
         def wrapper(*args, **kwargs):
             samples = func(*args, **kwargs)
+
+            if rate == 0:
+                return np.array([samples])
+
             n_downsamples = len(samples) // rate
             downsamples = np.zeros((rate, n_downsamples, samples.shape[1]))
 

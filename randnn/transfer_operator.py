@@ -8,7 +8,7 @@ Year: 2020
 """
 import logging
 from dataclasses import dataclass
-from typing import Union
+from typing import Union,List, NewType
 
 import numpy as np
 from scipy import linalg
@@ -20,79 +20,33 @@ from tqdm.contrib import tenumerate
 
 from .utils import eigsort, normalize_rows, svd_whiten
 
+LabelingMethod = NewType("LabelingMethod", Union["kmeans", "uniform"])
 
 @dataclass
 class TransferOperator(object):
     """Class for implementing the transfer operator approach"""
-    n_delays: int = 0
-    embedding_dim: int = 1
     trans_matrix: np.ndarray = None
     invariant_dist: np.ndarray = None
     minimum_x: float = 0.
     maximum_x: float = 0.
-    labeling_method: Union["kmeans", "uniform"] = "kmeans"
+    labeling_method:LabelingMethod  = "kmeans"
 
-    @staticmethod
-    def _get_delay_embedding(time_series: np.ndarray,
-                             n_delays: int) -> np.ndarray:
-        """
-        A helper method which produces a delay-embedded time series from ``time_series`` with ``n_delays``
-
-        :param time_series: (shape [t, d])
-        :param n_delays: number of delays to embed
-
-        :returns delay_embedded_series: (shape [t - n_delays, d * n_delays])
-
-        """
-
-        logging.debug(
-            "------------------------------------------------------------")
-        logging.debug(
-            "_get_delay_embedding:INPUTS:time_series:SHAPE:{}".format(
-                time_series.shape))
-        logging.debug(
-            "_get_delay_embedding:INPUTS:n_delays:VALUE:{}".format(n_delays))
-
-        delay_embedding = time_series
-
-        if n_delays == 0:
-            return time_series
-
-        for i in range(1, n_delays + 1):
-            # Concatenatenate a [t, d]-shape array along its secondary axis
-            # with a delayed version of itself.
-            # (i.e. the same matrix rolled backwards along its principal axis)
-            # Then, we cut off the last row, since we have no information about the
-            # delays after our trajectory samples.
-
-            delay_embedding = np.concatenate(
-                [delay_embedding, np.roll(time_series, -i, 0)], axis=1)
-
-        delay_embedding = delay_embedding[:delay_embedding.shape[0] -
-                                          n_delays, :]
-
-        logging.debug(
-            "------------------------------------------------------------")
-        logging.debug(
-            "_get_delay_embedding:OUTPUT:delay_embedding:SHAPE:{}".format(
-                delay_embedding.shape))
-
-        return delay_embedding
-
-    def get_delay_embedding(self, time_series: np.ndarray) -> np.ndarray:
-        """
-        A wrapper for ``self._get_delay_embedding`` which uses ``self.n_delays`` (which must already be optimized/fitted) as the number of delays.
-        """
-        if self.n_delays is None:
-            raise AttributeError(
-                "You must first fit or assign the attribute ``n_delays``.")
-
-        return self._get_delay_embedding(time_series, self.n_delays)
 
     @staticmethod
     def get_uniform_labels(time_series: np.ndarray,
                            n_clusters: int,
                            verbose: bool = False) -> np.ndarray:
+        """
+        Uniform labeling is one of two possible labeling methods, the other being kmeans clustering.
+
+        Uniform labeling partitions the phase space into uniformly-spaced boxes.
+        Currently, this only works for 1d phase spaces.
+
+        TODO: Extend this to higher dimensions. Even then, it will only work for
+        low numbers of dimensions since the number of partitions scales rapidly.
+        """
+
+        # To uniformly partition the points in a trajectory, we have to determine the boundaries.
         minimum_x = np.amin(time_series, axis=0)
         maximum_x = np.amax(time_series, axis=0)
 
@@ -138,6 +92,17 @@ class TransferOperator(object):
     @staticmethod
     def get_kmeans_labels(time_series: np.ndarray,
                           n_clusters: int) -> np.ndarray:
+        """
+        Kmeans labeling is one of two possible labeling methods, the other being uniform labeling.
+
+        Kmeans clusters the phase space into maximally explicative Voronoi cells.
+
+        This is the better choice in higher dimensions because it is more efficient.
+        However, at lower dimensions, uniform labeling is preferred because it is more visually interpretable
+        (or at least easier to turn into something visually interpretable).
+
+        TODO: Save the kmeans fit so that we don't have to do this every time all over again.
+        """
         return KMeans(n_clusters).fit(time_series).labels_
 
     def get_ulam_galerkin_labels(self,
@@ -146,7 +111,7 @@ class TransferOperator(object):
                                  verbose: bool = False) -> np.ndarray:
         """
         Produces the cluster identity labels for each entry in a time series
-        `time_series` using  `n_clusters` clusters determined by K-means clustering.
+        `time_series` using  `n_clusters`.
         Decides what kind of labels to produce according to `self.labeling_method`
 
         :param time_series: (np.ndarray of shape [t, d])
@@ -166,74 +131,80 @@ class TransferOperator(object):
             )
 
     @staticmethod
-    def _get_trans_matrix_unnormalized(k_means_labels: np.ndarray,
+    def _get_trans_matrix_unnormalized(cluster_labels: np.ndarray,
                                        n_clusters: int,
                                        n_future_timesteps: int,
                                        verbose: bool = False) -> np.ndarray:
-        if n_future_timesteps < 1 or type(n_future_timesteps) != int:
-            raise ValueError(
-                "n_future_timesteps must be an integer greater than 1")
+        """
+        We approximate the transfer operator as a finite-rank matrix $P_{i,j}(\tau, N)$, where
+        entry $(i,j)$ counts the number of transitions between cluster $i$ and $j$ in
+        a time window $\tau$.
+        Here, $N$ is the number of clusters, i.e. $P$ will have shape $(N, N)$.
+        """
 
-        trans_matrix = sp.csr_matrix((n_clusters, n_clusters))
+        # We have discretized time, so $\tau$ becomes a discrete number of steps, `n_future_timesteps`.
+        # This has to be at least 1, else we would not be able to measure any transitions.
+        assert n_future_timesteps >= 1 and isinstance(n_future_timesteps, int), "`n_future_timesteps` must be an integer greater than 1"
 
-        # TODO: figure out a more efficient way to do this.
-        if not verbose:
-            for i in range(k_means_labels.size - 1):
-                for future_timestep in range(
-                        i + 1,
-                        min(k_means_labels.size, i + n_future_timesteps + 1)):
-                    # If a state in one cluster i ends up in another cluster j within n_timesteps steps,
-                    # Then, we add one to the trans matrix for the trans i -> j
-                    trans_matrix[k_means_labels[i],
-                                 k_means_labels[future_timestep]] += 1
-        else:
-            for i in tqdm(range(k_means_labels.size - 1),
-                          desc="Creating the transfer matrix"):
-                for future_timestep in range(
-                        i + 1,
-                        min(k_means_labels.size, i + n_future_timesteps + 1)):
-                    # If a state in one cluster i ends up in another cluster j within n_timesteps steps,
-                    # Then, we add one to the trans matrix for the trans i -> j
-                    trans_matrix[k_means_labels[i],
-                                 k_means_labels[future_timestep]] += 1
+        # For efficiency, we use sparse matrices
+        trans_matrix = sp.lil_matrix((n_clusters, n_clusters))
 
-        logging.debug(
-            "------------------------------------------------------------")
-        logging.debug("get_trans_matrix_unnormalized {}".format(
-            trans_matrix.toarray().shape))
+        cluster_labels_range = range(cluster_labels.size - n_future_timesteps - 1 )
+
+        # For a verbose readout, we log our progress along the trajectory
+        if verbose:
+            cluster_labels_range = tqdm(cluster_labels_range,
+                                        desc="Creating the transfer matrix")
+
+        for i in cluster_labels_range:
+            future_timestep = i + n_future_timesteps
+            trans_matrix[cluster_labels[i], cluster_labels[future_timestep]] += 1
+
+            # for future_timestep in range(
+            #         i + 1,
+            #         min(cluster_labels.size, i + n_future_timesteps + 1)):
+            #     # If a state in one cluster i ends up in another cluster j within n_timesteps steps,
+            #     # Then, we add one to the trans matrix for the trans i -> j
+            #     trans_matrix[cluster_labels[i],
+            #                  cluster_labels[future_timestep]] += 1
+
         return trans_matrix.toarray()
 
     def get_trans_matrix(self,
                          time_series: np.ndarray,
                          n_clusters: int,
                          n_future_timesteps: int = 1) -> np.ndarray:
-        k_means_labels = self.get_ulam_galerkin_labels(time_series, n_clusters)
 
+        # 1. Convert the time_series into a series of cluster labels
+        cluster_labels = self.get_ulam_galerkin_labels(time_series, n_clusters)
+
+        # 2. Compute the unnormalized trans_matrix from this series of cluster labels
         trans_matrix_unnormalized = self._get_trans_matrix_unnormalized(
-            k_means_labels, n_clusters, n_future_timesteps)
-        # In order to ensure that probability is conserved, i.e \sum_j P_{ij} = 1,
-        # after counting transs at all timesteps, we normalize over columns.
-        logging.debug(
-            "------------------------------------------------------------")
-        logging.log(
-            5, "get_trans_matrix unnormalized:\n{}".format(
-                trans_matrix_unnormalized))
+            cluster_labels, n_clusters, n_future_timesteps)
+
+        # 3. Normalize and return
         trans_matrix = normalize_rows(trans_matrix_unnormalized)
-        logging.log(5, "get_trans_matrix:\n{}".format(trans_matrix))
+
         return trans_matrix
 
-    def get_t_imp(self, time_series: np.ndarray, eigval_idx: int,
-                  n_partitionings: int, tau: int,
+    def get_t_imp(self, time_series: np.ndarray, eigval_idxs: List[int],
+                  n_clusters: int, tau: int,
                   transition_time: np.float64) -> np.float64:
+
         trans_matrix = self.get_trans_matrix(time_series,
-                                             n_clusters=n_partitionings,
+                                             n_clusters=n_clusters,
                                              n_future_timesteps=tau)
 
-        eigvals = eigs_sort(trans_matrix.T, eigval_idx + 1, which='LM')[0]
-        eigval = eigvals[eigval_idx]
-        t_imp = -tau / (np.log(np.abs(eigval))) * transition_time
+        n_eigvals = max(eigval_idxs) + 1
 
-        #print("N {} tau {} eigvals {} t_imp {}".format(n_partitionings, tau, eigvals, t_imp))
+        eig_method = "sp"
+        if (n_eigvals >= trans_matrix.shape[0] -1):
+            eig_method = "np"
+
+        eigvals = eigsort(trans_matrix.T, max(eigval_idxs) + 1, which="LM", eig_method=eig_method)[0]
+
+        eigval = eigvals[eigval_idxs]
+        t_imp = -transition_time * tau / (np.log(np.abs(eigval)))
 
         return t_imp
 
@@ -316,6 +287,18 @@ class TransferOperator(object):
 
         return -np.sum(invariant_dist *
                        (trans_matrix * np.log(trans_matrix_ones)))
+
+
+# ------------------------------------------------------------
+
+# Phase Space Reconstruction (as set out in Costa 2020), works at the level of transfer matrices
+
+# ------------------------------------------------------------
+
+@dataclass
+class PhaseSpaceReconstructor(TransferOperator):
+    n_delays: int = 0
+    embedding_dim: int = 1
 
     def get_max_entropy_partitioning(self,
                                      time_series,
@@ -561,29 +544,6 @@ class TransferOperator(object):
 
         return embedding_dim
 
-    def transform(self, time_series):
-        """
-        Assumes that this object has already been fitted using ``fit``.
-
-        :param time_series: (np.ndarray of shape [t, d])
-
-        First, embeds the ``time_series`` in a delay-embeded space of ``self.n_delays`` delays,
-        i.e. to a np.ndarray of shape [self.n_delays * d, t]
-
-        Then, performs dimensional reduction by performing SVD and keeping only the ``self.embedding_dim`` many components.
-
-        :returns reconstructed_series: (np.ndarray of shape [t, self.embedding_dim])
-        """
-
-        delay_embedding = get_delay_embedding(time_series, n_delays)
-
-        if self.pca is None:
-            raise AttributeError(
-                "You must first fit the transfer operator before using transform."
-            )
-
-        return self.pca.transform(delay_embedding)
-
     def fit_trans_matrix(
         self,
         time_series,
@@ -605,6 +565,65 @@ class TransferOperator(object):
 
         self.fit_reversible_trans_matrix()
         return self.reversible_trans_matrix
+
+
+    @staticmethod
+    def _get_delay_embedding(time_series: np.ndarray,
+                             n_delays: int) -> np.ndarray:
+        """
+        A helper method which produces a delay-embedded time series from ``time_series`` with ``n_delays``
+
+        :param time_series: (shape [t, d])
+        :param n_delays: number of delays to embed
+
+        :returns delay_embedded_series: (shape [t - n_delays, d * n_delays])
+
+        """
+
+        logging.debug(
+            "------------------------------------------------------------")
+        logging.debug(
+            "_get_delay_embedding:INPUTS:time_series:SHAPE:{}".format(
+                time_series.shape))
+        logging.debug(
+            "_get_delay_embedding:INPUTS:n_delays:VALUE:{}".format(n_delays))
+
+        delay_embedding = time_series
+
+        if n_delays == 0:
+            return time_series
+
+        for i in range(1, n_delays + 1):
+            # Concatenatenate a [t, d]-shape array along its secondary axis
+            # with a delayed version of itself.
+            # (i.e. the same matrix rolled backwards along its principal axis)
+            # Then, we cut off the last row, since we have no information about the
+            # delays after our trajectory samples.
+
+            delay_embedding = np.concatenate(
+                [delay_embedding, np.roll(time_series, -i, 0)], axis=1)
+
+        delay_embedding = delay_embedding[:delay_embedding.shape[0] -
+                                          n_delays, :]
+
+        logging.debug(
+            "------------------------------------------------------------")
+        logging.debug(
+            "_get_delay_embedding:OUTPUT:delay_embedding:SHAPE:{}".format(
+                delay_embedding.shape))
+
+        return delay_embedding
+
+    def get_delay_embedding(self, time_series: np.ndarray) -> np.ndarray:
+        """
+        A wrapper for ``self._get_delay_embedding`` which uses ``self.n_delays`` (which must already be optimized/fitted) as the number of delays.
+        """
+        if self.n_delays is None:
+            raise AttributeError(
+                "You must first fit or assign the attribute ``n_delays``.")
+
+        return self._get_delay_embedding(time_series, self.n_delays)
+
 
     def _fit(
         self,
@@ -691,6 +710,29 @@ class TransferOperator(object):
                   downsample=downsample)
         return self
 
+    def transform(self, time_series):
+        """
+        Assumes that this object has already been fitted using ``fit``.
+
+        :param time_series: (np.ndarray of shape [t, d])
+
+        First, embeds the ``time_series`` in a delay-embeded space of ``self.n_delays`` delays,
+        i.e. to a np.ndarray of shape [self.n_delays * d, t]
+
+        Then, performs dimensional reduction by performing SVD and keeping only the ``self.embedding_dim`` many components.
+
+        :returns reconstructed_series: (np.ndarray of shape [t, self.embedding_dim])
+        """
+
+        delay_embedding = get_delay_embedding(time_series, n_delays)
+
+        if self.pca is None:
+            raise AttributeError(
+                "You must first fit the transfer operator before using transform."
+            )
+
+        return self.pca.transform(delay_embedding)
+
     def fit_transform(
         self,
         time_series,
@@ -719,6 +761,7 @@ class TransferOperator(object):
                          delay_n_future_timesteps=delay_n_future_timesteps,
                          dim_n_future_timesteps=dim_n_future_timesteps,
                          downsample=downsample)
+
 
 
 # pytest

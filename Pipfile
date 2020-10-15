@@ -16,6 +16,9 @@ scipy = "*"
 jupyter = "*"
 pytest = "*"
 sklearn = "*"
+notebook = "*"
+wheel = "*"
+setuptools = "*"
 
 [requires]
 python_version = "3.8"

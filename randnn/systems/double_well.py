@@ -43,20 +43,20 @@ class BrownianMotion(StochasticTrajectory):
         self.beta = beta
         self.gamma = gamma
         self.is_overdamped = is_overdamped
-        super().__init__(**kwargs)
-
-    def __post_init__(self):
+        vectorized = not is_overdamped
+        n_dofs = 1 if is_overdamped else 2
+        super().__init__(vectorized=vectorized, n_dofs=n_dofs, **kwargs)
 
         # We run the conditional here so we don't have to go through it every time we integrate a step forward
         if self.is_overdamped:
-            self._take_step = lambda t, x: np.array([x[1], -self.gamma * x[1] - self.grad_potential(x[0])])
-            self._get_random_step = lambda t, x: np.array([0, np.sqrt(2. * self.gamma / self.beta)])
-        else:
             self._take_step = lambda t, x: - self.grad_potential(x) / self.gamma
             self._get_random_step = lambda t,x:  np.sqrt(2. * self.gamma / self.beta) / self.gamma
+        else:
+            self._take_step = lambda t, x: np.array([x[1], -self.gamma * x[1] - self.grad_potential(x[0])])
+            self._get_random_step = lambda t, x: np.array([0, np.sqrt(2. * self.gamma / self.beta)])
 
     @staticmethod
-    def grad_potential(x: Position) -> float:
+    def grad_potential(x: float) -> float:
         return 0.
 
     def take_step(self, t, x: Position) -> Position:
@@ -68,15 +68,15 @@ class BrownianMotion(StochasticTrajectory):
 
 class DoubleWell(BrownianMotion):
     @staticmethod
-    def grad_potential(x: Position) -> float:
-        return -4 * x * (x**2 - 1)
+    def grad_potential(x: float) -> float:
+        return 4. * x * (x ** 2 - 1)
 
     def get_boltzmann_dist_exact(self, x_min=-2., n_bins=100, display=True):
         step = -2 * x_min / n_bins
         trajectory = np.arange(x_min, -x_min, step)
 
         energies = np.square(np.square(trajectory) - 1.)
-        boltzmann_weights = np.exp(-energies / (self.temperature))
+        boltzmann_weights = np.exp(-energies * (self.beta))
         boltzmann_weights /= np.sum(boltzmann_weights)
 
         _ = plt.plot(trajectory, boltzmann_weights)
@@ -91,7 +91,7 @@ class DoubleWell(BrownianMotion):
 
     @property
     def dominant_eigval(self):
-        return ((np.sqrt(17) - 1) * np.exp(-1. / self.temperature) / (np.pi * np.sqrt(2)))
+        return ((np.sqrt(17) - 1) * np.exp(- self.beta) / (np.pi * np.sqrt(2)))
 
     @property
     def dominant_timescale(self):

@@ -24,8 +24,10 @@ class Trajectory:
 
     """
     def __init__(self,
+                 timestep: float =1e-3,
                  init_state: Optional[Union[np.ndarray, float]] = None,
-                 n_dofs: Optional[int] = 100):
+                 n_dofs: Optional[int] = 100,
+                 vectorized: bool=True):
         """
         :param init_state: the state to initialize the neurons with.
             defaults to a state of `n_dofs` neurons drawn randomly from the uniform distribution.
@@ -35,18 +37,22 @@ class Trajectory:
             if `init_state` is of type `int`, this must be specified,
             else `n_dofs` is overwritten by the size of `init_state`
         """
+        self.timestep = timestep
 
         if init_state is None:
             assert not n_dofs is None
             init_state = np.random.uniform(size=n_dofs)
+
         elif isinstance(init_state, float):
             assert not n_dofs is None
             init_state = np.random.uniform(size=n_dofs) * init_state
+
         else:
             n_dofs = init_state.size
 
         self.init_state = init_state
         self.n_dofs = n_dofs
+        self.vectorized = vectorized
 
     def __str__(self):
         return "trajectory-dof{}".format(self.n_dofs)
@@ -141,8 +147,8 @@ class DeterministicTrajectory(Trajectory):
                     0,
                     init_dofs,
                     n_steps,
-                    max_step=timestep,
-                    vectorized=vectorized)
+                    max_step=self.timestep,
+                    vectorized=self.vectorized)
 
     def take_step(self, t: float, state: Position) -> Position:
         raise NotImplementedError
@@ -159,8 +165,8 @@ class StochasticTrajectory(Trajectory):
                              0,
                              init_dofs,
                              n_steps,
-                             timestep=timestep,
-                             vectorized=vectorized)
+                             timestep=self.timestep,
+                             vectorized=self.vectorized)
 
     def take_step(self, t: float, state: Position) -> Position:
         raise NotImplementedError

@@ -4,7 +4,7 @@ Author: Jesse Hoogland
 Year: 2020
 
 """
-from typing import NewType, Union
+from typing import Union
 
 import numpy as np
 from scipy.integrate import OdeSolver, DenseOutput
@@ -12,7 +12,7 @@ from scipy.integrate._ivp.common import (validate_max_step, validate_tol,
                                          select_initial_step, norm,
                                          warn_extraneous, validate_first_step)
 
-Position = NewType("Position", Union[np.ndarray[np.float64], float])
+Position = Union[np.ndarray, float]
 
 def em_step(f, g, t, y, timestep):
     return y + f(t, y) * timestep + g(

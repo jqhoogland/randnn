@@ -13,6 +13,7 @@ from typing import Optional, Tuple
 import numpy as np
 import scipy.sparse as sp
 from tqdm import tqdm
+from matplotlib import pyplot as plt
 
 def np_cache(dir_path: str = "./saves/", file_prefix: Optional[str] = None, ignore: Optional[list]=[]):
     """
@@ -146,7 +147,7 @@ def count_fixed_pts(trajectory: np.ndarray, atol: float = 1e-3) -> int:
     return np.sum(fixed_pt_neurons)
 
 
-def count_cycles(trajectory: np.ndarray, atol: float = 1e-1, max_n_steps: Optional[int]=None) -> int:
+def count_cycles(trajectory: np.ndarray, atol: float = 1e-1, max_n_steps: Optional[int]=None, verbose: bool=False) -> int:
     """
     :param trajectory: the trajectory of shape [n_dofs, n_timesteps]
 
@@ -182,12 +183,34 @@ def count_cycles(trajectory: np.ndarray, atol: float = 1e-1, max_n_steps: Option
 
         cycles[i] = is_cycle
 
-        # While debugging
-        # plt.plot(acor)
-        # plt.plot(close_peaks)
-        # plt.show()
+        if verbose:
+            # While debugging
+            plt.plot(path[:10000])
+            plt.show()
+
+            plt.plot(acor)
+            plt.plot(close_peaks)
+            plt.show()
+
+    print(np.sum(cycles))
 
     return np.sum(cycles)
+
+def participation_ratio(trajectory, max_n_steps: Optional[int]=None ):
+    """
+    TODO: consistency in shape of trajectory
+    :param trajectory: the trajectory of shape [n_timesteps, n_dofs]
+    """
+    n_timesteps = trajectory.shape[1]
+
+    if max_n_steps and max_n_steps < n_timesteps:
+        trajectory = trajectory[:, (n_timesteps - max_n_steps):]
+
+
+    covariance = np.cov(trajectory)
+    eigvals, _ = np.linalg.eig(covariance)
+
+    return np.power(np.sum(eigvals), 2) / np.sum(np.power(eigvals, 2))
 
 
 def test_count_trivial_fixed_pts():
@@ -210,7 +233,18 @@ def test_count_cycles():
 
     trajectory = np.array([signal_1, signal_2, signal_3, signal_4, signal_5])
 
-    assert count_cycles(trajectory, 0.1)  == 2
+    assert count_cycles(trajectory, 0.1, verbose=False)  == 2
+
+def test_participation_ratio():
+    # Fully dependent components -> D = 1
+    signal_1 = np.arange(5)
+    trajectory_1 = np.array([signal_1, 2 * signal_1, 3 * signal_1]).T
+    assert np.isclose(participation_ratio(trajectory_1), 1.)
+
+    # Fully independent components -> D = N (number of components)
+    trajectory_2 = np.eye(100, 5).T
+
+    assert np.isclose(participation_ratio(trajectory_2), 5., atol=0.1)
 
 
 def test_qr_positive():

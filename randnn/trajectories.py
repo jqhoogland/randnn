@@ -14,9 +14,8 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 from tqdm import tqdm
 from scipy.integrate import RK45
-from .integrate import EulerMaruyama
+from .integrate import EulerMaruyama, Position
 from .utils import np_cache, qr_positive, random_orthonormal
-
 
 class Trajectory:
     """
@@ -25,7 +24,6 @@ class Trajectory:
 
     """
     def __init__(self,
-                 integrate,
                  init_state: Optional[Union[np.ndarray, float]] = None,
                  n_dofs: Optional[int] = 100):
         """
@@ -37,8 +35,6 @@ class Trajectory:
             if `init_state` is of type `int`, this must be specified,
             else `n_dofs` is overwritten by the size of `init_state`
         """
-
-        self.integrate = integrate
 
         if init_state is None:
             assert not n_dofs is None
@@ -55,13 +51,18 @@ class Trajectory:
     def __str__(self):
         return "trajectory-dof{}".format(self.n_dofs)
 
-    def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
+    def get_integrator(self, init_dofs, n_steps):
         raise NotImplementedError
 
-    def jacobian(self, state: np.ndarray) -> np.ndarray:
+    def take_step(self, t: float, state: Position) -> Position:
         raise NotImplementedError
 
-    @np_cache(dir_path="./saves/lyapunov/", file_prefix="spectrum-", ignore=[1])
+    def jacobian(self, state: Position) -> Position:
+        raise NotImplementedError
+
+    @np_cache(dir_path="./saves/lyapunov/",
+              file_prefix="spectrum-",
+              ignore=[1])
     def get_lyapunov_spectrum(self,
                               trajectory: np.ndarray,
                               n_burn_in: int = 0,
@@ -121,7 +122,7 @@ class Trajectory:
     @np_cache(dir_path="./saves/trajectories/", file_prefix="trajectory-")
     def run(self, n_burn_in: int = 500, n_steps: int = 10000):
 
-        integrator = self.integrate(self.init_state, n_steps)
+        integrator = self.get_integrator(self.init_state, n_steps)
         state = np.zeros([n_steps, self.n_dofs])
 
         for _ in tqdm(range(n_burn_in), desc="Burning in"):
@@ -135,33 +136,39 @@ class Trajectory:
 
 
 class DeterministicTrajectory(Trajectory):
-    def __init__(self, max_step=0.01, vectorized=True, **kwargs):
-        integrate = lambda init_dofs, n_steps: RK45(self.take_step,
-                                                    0,
-                                                    init_dofs,
-                                                    n_steps,
-                                                    max_step=max_step,
-                                                    vectorized=vectorized)
-        super(DeterministicTrajectory, self).__init__(integrate=integrate,
-                                                      **kwargs)
+    def get_integrator(self, init_dofs, n_steps):
+        return RK45(self.take_step,
+                    0,
+                    init_dofs,
+                    n_steps,
+                    max_step=timestep,
+                    vectorized=vectorized)
+
+    def take_step(self, t: float, state: Position) -> Position:
+        raise NotImplementedError
+
+    def jacobian(self, state: Position) -> Position:
+        raise NotImplementedError
+
 
 
 class StochasticTrajectory(Trajectory):
-    def __init__(self, step_size=0.001, vectorized=True, **kwargs):
-        self.step_size = step_size
-        integrate = lambda init_dofs, n_steps: EulerMaruyama(
-            self.take_step,
-            self.get_random_step,
-            0,
-            init_dofs,
-            n_steps,
-            step_size=step_size,
-            vectorized=vectorized)
+    def get_integrator(self, init_dofs, n_steps):
+        return EulerMaruyama(self.take_step,
+                             self.get_random_step,
+                             0,
+                             init_dofs,
+                             n_steps,
+                             timestep=timestep,
+                             vectorized=vectorized)
 
-        super(StochasticTrajectory, self).__init__(integrate=integrate,
-                                                   **kwargs)
+    def take_step(self, t: float, state: Position) -> Position:
+        raise NotImplementedError
 
-    def get_random_step(self, t: int, state: np.ndarray) -> np.ndarray:
+    def jacobian(self, state: Position) -> Position:
+        raise NotImplementedError
+
+    def jacobian(self, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
 

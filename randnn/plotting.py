@@ -34,7 +34,8 @@ def plot_trajectory_avg(trajectory):
 
 
 def plot_trajectory_samples(trajectory: np.ndarray,
-                            indices: Union[int, np.ndarray] = 5):
+                            indices: Union[int, np.ndarray] = 5,
+                            title: str = "Sample trajectories"):
     """
     :param trajectory: of shape (n_timesteps, n_dofs)
     :param indices: if int, plots the trajectories of the first `indices` many neurons on top of eachother.
@@ -50,9 +51,29 @@ def plot_trajectory_samples(trajectory: np.ndarray,
         for i in range(indices):
             plt.plot(trajectory[:, i], color="tab:blue")
 
-    plt.title("Sample neural trajectories")
-    plt.xlabel("Time ($\tau$)")
+    plt.title(title)
+    plt.xlabel("Time ($\\tau$)")
     plt.ylabel("Activity")
+
+
+def plot_samples(
+    coupling_strength: float,
+    number: int = 5,
+    n_dofs: int = 100,
+    timestep: float = 0.1,
+    n_steps: int = 10000,
+    n_burn_in: int = 1000,
+    t_ons: int = 10,
+):
+    cont_nn = ContinuousNN(coupling_strength=coupling_strength,
+                           n_dofs=n_dofs,
+                           timestep=timestep)
+    trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
+
+    plot_trajectory_samples(
+        trajectory,
+        number,
+        title="Sample trajectories at $g={}$".format(coupling_strength))
 
 
 def plot_random_matrix_spectrum(matrix, radius=None):
@@ -169,7 +190,7 @@ def plot_max_l_with_g(gs: Sequence,
             "Deriving maximum lyapunov exponent for `g = {}`".format(g))
         cont_nn = ContinuousNN(coupling_strength=g,
                                n_dofs=n_dofs,
-                               max_step=timestep)
+                               timestep=timestep)
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
         lyapunov_spectrum = cont_nn.get_lyapunov_spectrum(trajectory, t_ons=10)
         max_lyapunov_exps[i] = lyapunov_spectrum[0]
@@ -191,7 +212,7 @@ def plot_trivial_fixed_pt_with_g(gs: Sequence,
         logging.info("Deriving fraction at 0 for `g = {}`".format(g))
         cont_nn = ContinuousNN(coupling_strength=g,
                                n_dofs=n_dofs,
-                               max_step=timestep)
+                               timestep=timestep)
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
         trivial_fixed_pt_proportions[i] = count_trivial_fixed_pts(
@@ -215,10 +236,11 @@ def plot_nontrivial_fixed_pt_with_g(gs: Sequence,
     fixed_pt_proportions = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
-        logging.info("Deriving fraction at 0 for `g = {}`".format(g))
+        logging.info(
+            "Deriving fraction at non-0 fixed points for `g = {}`".format(g))
         cont_nn = ContinuousNN(coupling_strength=g,
                                n_dofs=n_dofs,
-                               max_step=timestep)
+                               timestep=timestep)
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
         n_trivial_fixed_pts = count_trivial_fixed_pts(trajectory.T, atol)
@@ -241,14 +263,14 @@ def plot_cycles_with_g(gs: Sequence,
                        n_burn_in: int = 1000,
                        t_ons: int = 10,
                        atol: float = 1e-3,
-                       max_n_steps: int=10000):
+                       max_n_steps: int = 10000):
     cycle_proportions = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
-        logging.info("Deriving fraction at 0 for `g = {}`".format(g))
+        logging.info("Counting cycles for `g = {}`".format(g))
         cont_nn = ContinuousNN(coupling_strength=g,
                                n_dofs=n_dofs,
-                               max_step=timestep)
+                               timestep=timestep)
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
         n_cycles = count_cycles(trajectory.T, atol, max_n_steps)
@@ -259,3 +281,28 @@ def plot_cycles_with_g(gs: Sequence,
     plt.xlabel("$g$, the coupling strength")
     plt.ylabel("Fraction of neurons in cycles")
     plt.plot(gs, cycle_proportions)
+
+
+def plot_participation_ratio_with_g(gs: Sequence,
+                                    n_dofs: int = 100,
+                                    timestep: float = 0.1,
+                                    n_steps: int = 10000,
+                                    n_burn_in: int = 1000,
+                                    max_n_steps: int = 10000):
+
+    ratios = np.zeros(len(gs))
+
+    for i, g in enumerate(gs):
+        logging.info("Deriving participation ratio for `g = {}`".format(g))
+        cont_nn = ContinuousNN(coupling_strength=g,
+                               n_dofs=n_dofs,
+                               timestep=timestep)
+        trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
+
+        ratios[i] = participation_ratio(trajectory.T,
+                                        max_n_steps=max_n_steps) / n_dofs
+
+    plt.title("Relative Participation ratio, $D/N$")
+    plt.xlabel("$g$, the coupling strength")
+    plt.ylabel("Participation ratio, $D_{PCA}$")
+    plt.plot(gs, ratios)

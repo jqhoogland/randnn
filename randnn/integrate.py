@@ -4,16 +4,19 @@ Author: Jesse Hoogland
 Year: 2020
 
 """
+from typing import NewType, Union
+
 import numpy as np
 from scipy.integrate import OdeSolver, DenseOutput
 from scipy.integrate._ivp.common import (validate_max_step, validate_tol,
                                          select_initial_step, norm,
                                          warn_extraneous, validate_first_step)
 
+Position = NewType("Position", Union[np.ndarray[np.float64], float])
 
-def em_step(f, g, t, y, step_size):
-    return y + f(t, y) * step_size + g(
-        t, y) * np.random.normal(scale=np.sqrt(step_size))
+def em_step(f, g, t, y, timestep):
+    return y + f(t, y) * timestep + g(
+        t, y) * np.random.normal(scale=np.sqrt(timestep))
 
 
 class EmDenseOutput(DenseOutput):
@@ -49,7 +52,7 @@ class EulerMaruyama(OdeSolver):
 
     Integrates a function of the kind
     $$ dX_t = f(t, X) dt + g(t, X) dW_t, $$
-    where dW_t is Weiner noise with standard deviation equal to d
+    where dW_t is Weiner noise with standard deviation equal to dt
 
     """
     def __init__(self,
@@ -58,7 +61,7 @@ class EulerMaruyama(OdeSolver):
                  t0,
                  y0,
                  t_bound,
-                 step_size=0.001,
+                 timestep=0.001,
                  vectorized=False,
                  **extraneous):
         warn_extraneous(extraneous)
@@ -70,7 +73,7 @@ class EulerMaruyama(OdeSolver):
                                             support_complex=True)
         self.g = g
         self.y_old = None
-        self._step_size = step_size
+        self.timestep = timestep
 
     def _step_impl(self):
         """
@@ -82,8 +85,8 @@ class EulerMaruyama(OdeSolver):
         y = self.y
 
         self.y_old = self.y
-        self.y = em_step(self.fun, self.g, t, y, self._step_size)
-        self.t = t + self._step_size
+        self.y = em_step(self.fun, self.g, t, y, self.timestep)
+        self.t = t + self.timestep
 
         return True, None
 

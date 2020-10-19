@@ -43,13 +43,13 @@ class ContinuousNN(DeterministicTrajectory):
                 "Either `coupling_matrix` or `coupling_strength` must be provided."
             )
 
-        self.timestep = kwargs.get("max_step", 0.01)
+        self.timestep = kwargs.get("step_size", 0.01)
 
         self.coupling_strength = coupling_strength
 
     def __repr__(self):
-        return "<ContinuousNN coupling_strength:{} n_dofs:{}>".format(
-            self.coupling_strength, self.n_dofs)
+        return "<ContinuousNN coupling_strength:{} n_dofs:{} timestep:{}>".format(
+            self.coupling_strength, self.n_dofs, self.timestep)
 
     @staticmethod
     def activation(state: np.ndarray) -> np.ndarray:

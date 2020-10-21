@@ -65,6 +65,11 @@ class BrownianMotion(StochasticTrajectory):
     def get_random_step(self, t, x) -> Position:
         return self._get_random_step(t, x)
 
+    @staticmethod
+    def count_crossovers(trajectory: np.ndarray, position: float) -> int:
+        binary_trajectory = np.where(trajectory < position, 1, 0)
+        crossovers = np.where(binary_trajectory != np.roll(binary_trajectory, 1), 1, 0)
+        return np.sum(crossovers)
 
 class DoubleWell(BrownianMotion):
     @staticmethod
@@ -93,6 +98,10 @@ class DoubleWell(BrownianMotion):
     def dominant_eigval(self):
         return ((np.sqrt(17) - 1) * np.exp(- self.beta) / (np.pi * np.sqrt(2)))
 
-    @property
-    def dominant_timescale(self):
-        return self.timestep / np.log(self.dominant_eigval)
+    def get_timescale(self, eigval, multiplier=1.):
+        return -float(self.timestep * multiplier/ np.log(eigval))
+
+    def transition_time(self, trajectory):
+        trajectory_duration = trajectory.shape[0] * self.timestep
+        n_crossovers = self.count_crossovers(trajectory, 0.)
+        return trajectory_duration / n_crossovers

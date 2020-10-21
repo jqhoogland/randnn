@@ -182,39 +182,93 @@ def plot_max_l_with_g(gs: Sequence,
                       timestep: float = 0.1,
                       n_steps: int = 10000,
                       n_burn_in: int = 1000,
-                      t_ons: int = 10):
+                      t_ons: int = 10,
+                      network_seed: int=123):
+    """
+    Plot the maximum lyapunov exponent as a function of the coupling
+    strength, $g$.
+
+    :param gs: The list of coupling strengths for which to sample
+        corresponding lyapunov exponents.
+    :param n_dofs: The number of elements (neurons).
+    :param timestep: The discretization timestep.
+    :param n_steps: How many timesteps to simulate for each
+        coupling_strength.
+    :param n_burn_in: How many burnin timesteps to simulate before
+        starting to record.
+    :param t_ons: Akin to a downsampling time when computing the full
+        Lyapunov spectrum.
+    :param network_seed: The random seed to use when drawing coupling
+        matrices.  Setting this ensures that the networks at different
+        sizes differ only in the coupling strength and not in the
+        normalized network topologies.  This lets us compare similar
+        networks.
+    """
+
     max_lyapunov_exps = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
         logging.info(
             "Deriving maximum lyapunov exponent for `g = {}`".format(g))
-        cont_nn = ContinuousNN(coupling_strength=g,
-                               n_dofs=n_dofs,
-                               timestep=timestep)
+
+        # 1. Initialize a network
+        cont_nn = ContinuousNN(coupling_strength=g, n_dofs=n_dofs,
+                               timestep=timestep,
+                               network_seed=network_seed)
+
+        # 2. Simulate a phase space trajectory
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
-        lyapunov_spectrum = cont_nn.get_lyapunov_spectrum(trajectory, t_ons=10)
+
+        # 3. Derive the Lyapunov spectrum (using reorthonormalization)
+        lyapunov_spectrum = cont_nn.get_lyapunov_spectrum(trajectory,
+                                                          t_ons=10)
+
+        # 4. Log the maximum Lyapunov exponent.
         max_lyapunov_exps[i] = lyapunov_spectrum[0]
 
     plt.plot(gs, max_lyapunov_exps)
     plt.plot(gs, np.zeros(len(gs)), ":")
 
 
-def plot_trivial_fixed_pt_with_g(gs: Sequence,
-                                 n_dofs: int = 100,
-                                 timestep: float = 0.1,
-                                 n_steps: int = 10000,
-                                 n_burn_in: int = 1000,
-                                 t_ons: int = 10,
-                                 atol: float = 1e-3):
+def plot_trivial_fixed_pt_with_g(gs: Sequence, n_dofs: int = 100,
+                                 timestep: float = 0.1, n_steps: int =
+                                 10000, n_burn_in: int = 1000, atol:
+                                 float = 1e-3, network_seed: int=123):
+    """
+    Plot the fraction of dofs which settle to the trivial fixed point
+    (=0) as a function of the coupling strength, $g$.
+
+    :param gs: The list of coupling strengths for which to sample
+        corresponding lyapunov exponents.
+    :param n_dofs: The number of elements (neurons).
+    :param timestep: The discretization timestep.
+    :param n_steps: How many timesteps to simulate for each
+        coupling_strength.
+    :param n_burn_in: How many burnin timesteps to simulate before
+        starting to record.
+    :param atol: This is the absolute numerical tolerance that
+        determines whether a subtrajectory has reached 0.
+    :param network_seed: The random seed to use when drawing coupling
+        matrices.  Setting this ensures that the networks at different
+        sizes differ only in the coupling strength and not in the
+        normalized network topologies.  This lets us compare similar
+        networks.
+    """
+
     trivial_fixed_pt_proportions = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
         logging.info("Deriving fraction at 0 for `g = {}`".format(g))
-        cont_nn = ContinuousNN(coupling_strength=g,
-                               n_dofs=n_dofs,
-                               timestep=timestep)
+
+        # 1. Initialize a network
+        cont_nn = ContinuousNN(coupling_strength=g, n_dofs=n_dofs,
+                               timestep=timestep,
+                               network_seed=network_seed)
+
+        # 2. Simulate a phase space trajectory
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
+        # 3. Compute the fraction of dofs at 0
         trivial_fixed_pt_proportions[i] = count_trivial_fixed_pts(
             trajectory.T, atol) / n_dofs
 
@@ -231,21 +285,50 @@ def plot_nontrivial_fixed_pt_with_g(gs: Sequence,
                                     timestep: float = 0.1,
                                     n_steps: int = 10000,
                                     n_burn_in: int = 1000,
-                                    t_ons: int = 10,
-                                    atol: float = 1e-3):
+                                    atol: float = 1e-3,
+                                    network_seed: int=123):
+    """
+    Plot the fraction of dofs which settle to a nontrivial fixed point
+    (i.e. other than 0) as a function of the coupling strength, $g$.
+
+    :param gs: The list of coupling strengths for which to sample
+        corresponding lyapunov exponents.
+    :param n_dofs: The number of elements (neurons).
+    :param timestep: The discretization timestep.
+    :param n_steps: How many timesteps to simulate for each
+        coupling_strength.
+    :param n_burn_in: How many burnin timesteps to simulate before
+        starting to record.
+    :param atol: This is the absolute numerical tolerance that
+        determines whether a subtrajectory has settled to a fixed
+        point.
+    :param network_seed: The random seed to use when drawing coupling
+        matrices.  Setting this ensures that the networks at different
+        sizes differ only in the coupling strength and not in the
+        normalized network topologies.  This lets us compare similar
+        networks.
+    """
+
     fixed_pt_proportions = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
         logging.info(
             "Deriving fraction at non-0 fixed points for `g = {}`".format(g))
-        cont_nn = ContinuousNN(coupling_strength=g,
-                               n_dofs=n_dofs,
-                               timestep=timestep)
+
+        # 1. Initialize a network
+        cont_nn = ContinuousNN(coupling_strength=g, n_dofs=n_dofs,
+                               timestep=timestep,
+                               network_seed=network_seed)
+
+        # 2. Simulate a phase space trajectory
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
+        # 3. Compute the (1) total number of of fixed points and (2) the number of trivial fixed points
         n_trivial_fixed_pts = count_trivial_fixed_pts(trajectory.T, atol)
         n_fixed_pts = count_fixed_pts(trajectory.T, atol)
 
+        # 4. Compute the number of nontrivial fixed points from their
+        # difference
         fixed_pt_proportions[i] = (n_fixed_pts - n_trivial_fixed_pts) / n_dofs
 
     plt.title(
@@ -256,23 +339,48 @@ def plot_nontrivial_fixed_pt_with_g(gs: Sequence,
     plt.plot(gs, fixed_pt_proportions)
 
 
-def plot_cycles_with_g(gs: Sequence,
-                       n_dofs: int = 100,
-                       timestep: float = 0.1,
-                       n_steps: int = 10000,
-                       n_burn_in: int = 1000,
-                       t_ons: int = 10,
-                       atol: float = 1e-3,
-                       max_n_steps: int = 10000):
+def plot_cycles_with_g(gs: Sequence, n_dofs: int = 100, timestep:
+                       float = 0.1, n_steps: int = 10000, n_burn_in:
+                       int = 1000, atol: float = 1e-3, max_n_steps:
+                       int = 10000, network_seed: int=123):
+    """
+    Plot the fraction of dofs which settle to an oscillatory cycle
+    (i.e. neither noisy behavior nor fixed points) as a function of
+    the coupling strength, $g$.
+
+    :param gs: The list of coupling strengths for which to sample
+        corresponding lyapunov exponents.
+    :param n_dofs: The number of elements (neurons).
+    :param timestep: The discretization timestep.
+    :param n_steps: How many timesteps to simulate for each
+        coupling_strength.
+    :param n_burn_in: How many burnin timesteps to simulate before
+        starting to record.
+    :param atol: This is the absolute numerical tolerance that
+        determines whether a subtrajectory has settled into a cycle.
+    :param network_seed: The random seed to use when drawing coupling
+        matrices.  Setting this ensures that the networks at different
+        sizes differ only in the coupling strength and not in the
+        normalized network topologies.  This lets us compare similar
+        networks.
+    """
+
+
     cycle_proportions = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
         logging.info("Counting cycles for `g = {}`".format(g))
-        cont_nn = ContinuousNN(coupling_strength=g,
-                               n_dofs=n_dofs,
-                               timestep=timestep)
+
+        # 1. Initialize a network
+        cont_nn = ContinuousNN(coupling_strength=g, n_dofs=n_dofs,
+                               timestep=timestep,
+                               network_seed=network_seed)
+
+        # 2. Simulate a phase space trajectory
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
+        # 3. Compute the number of cycles and register the proportion
+        # of dofs in a cycle.
         n_cycles = count_cycles(trajectory.T, atol, max_n_steps)
         cycle_proportions[i] = n_cycles / n_dofs
 
@@ -288,17 +396,47 @@ def plot_participation_ratio_with_g(gs: Sequence,
                                     timestep: float = 0.1,
                                     n_steps: int = 10000,
                                     n_burn_in: int = 1000,
-                                    max_n_steps: int = 10000):
+                                    max_n_steps: int = 10000,
+                                    network_seed: int=123):
+    """
+    Plot the maximum lyapunov exponent as a function of the coupling
+    strength, $g$.
+
+    :param gs: The list of coupling strengths for which to sample
+        corresponding lyapunov exponents.
+    :param n_dofs: The number of elements (neurons).
+    :param timestep: The discretization timestep.
+    :param n_steps: How many timesteps to simulate for each
+        coupling_strength.
+    :param n_burn_in: How many burnin timesteps to simulate before
+        starting to record.
+    :param max_n_steps: The number of samples (drawn from the end of
+        the trajectory) over which to compute a PCA for the
+        participation ratio.  Very long trajectory lengths may be more
+        than the computer can reasonably handle.
+    :param network_seed: The random seed to use when drawing coupling
+        matrices.  Setting this ensures that the networks at different
+        sizes differ only in the coupling strength and not in the
+        normalized network topologies.  This lets us compare similar
+        networks.
+    """
+
 
     ratios = np.zeros(len(gs))
 
     for i, g in enumerate(gs):
         logging.info("Deriving participation ratio for `g = {}`".format(g))
+
+        # 1. Initialize a network
         cont_nn = ContinuousNN(coupling_strength=g,
                                n_dofs=n_dofs,
-                               timestep=timestep)
+                               timestep=timestep,
+                               network_seed=network_seed)
+
+        # 2. Simulate a phase space trajectory
         trajectory = cont_nn.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
+        # 3. Compute the participation ratio
         ratios[i] = participation_ratio(trajectory.T,
                                         max_n_steps=max_n_steps) / n_dofs
 

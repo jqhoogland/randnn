@@ -19,6 +19,7 @@ sklearn = "*"
 notebook = "*"
 wheel = "*"
 setuptools = "*"
+jedi = "*"
 
 [requires]
 python_version = "3.8"

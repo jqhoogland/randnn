@@ -18,16 +18,30 @@ class ContinuousNN(DeterministicTrajectory):
     def __init__(self,
                  coupling_strength: Optional[float] = 1.,
                  coupling_matrix: Optional[np.ndarray] = None,
-                 self_interaction: Optional[bool] = False,
+                 self_interaction: bool = False,
+                 network_seed: Optional[int] = None,
                  **kwargs) -> None:
         """
-        :param coupling_strength: see below. Either coupling_matrix or coupling_strenght must be provided, the former taking priority.
-        :param coupling_matrix: the matrix of couplings between neurons.
-            defaults to a gaussian random coupling matrix with variation $g^2/N$, where $N$ is `n_dofs` and $g$ is the coupling_stregnth.
-
+        :param coupling_strength: See below.  Either coupling_matrix
+            or coupling_strength must be provided, the former taking
+            priority.
+        :param coupling_matrix: The matrix of couplings between
+            neurons.  defaults to a gaussian random coupling matrix
+            with variation $g^2/N$, where $N$ is `n_dofs` and $g$ is
+            the coupling_stregnth.
+        :param self_interaction: This is used if we randomly generatea
+            coupling matrix.  It determines whether we do or do not
+            allow diagonal elements on the connectivity matrix
+        :param network_seed: If we randomly generate a coupling
+            matrix, this parameter determines the seed to use for
+            np.random.  This is useful if we'd like to compare similar
+            networks for different values of the coupling_strength.
+            By default, this is left blank, so we do not specify a
+            seed.
         :param kwargs: see parent class.
         """
 
+        self.network_seed = network_seed
         super().__init__(**kwargs)
 
         if not coupling_matrix is None:
@@ -36,20 +50,16 @@ class ContinuousNN(DeterministicTrajectory):
 
         elif coupling_strength:
             self.coupling_matrix = get_gaussian_topology(
-                self.n_dofs, coupling_strength, self_interaction)
-
+                self.n_dofs, coupling_strength, self_interaction,
+                self.network_seed)
         else:
-            raise ValueError(
-                "Either `coupling_matrix` or `coupling_strength` must be provided."
-            )
-
-        self.timestep = kwargs.get("step_size", 0.01)
+            raise ValueError("Either `coupling_matrix` or `coupling_strength` must be provided.")
 
         self.coupling_strength = coupling_strength
 
     def __repr__(self):
-        return "<ContinuousNN coupling_strength:{} n_dofs:{} timestep:{}>".format(
-            self.coupling_strength, self.n_dofs, self.timestep)
+        return "<ContinuousNN coupling_strength:{} n_dofs:{} timestep:{} seed: {}>".format(
+            self.coupling_strength, self.n_dofs, self.timestep, self.network_seed)
 
     @staticmethod
     def activation(state: np.ndarray) -> np.ndarray:

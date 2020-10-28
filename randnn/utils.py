@@ -72,7 +72,13 @@ def random_orthonormal(shape: Tuple[int, int]):
     return q
 
 
-def eigsort(A, k, which="LM", eig_method="sp"):
+def eigsort(A, k: Optional[int]=None, which="LM", eig_method="sp"):
+    if k is None:
+        k = A.shape[0]
+
+    if (k >= A.shape[0] - 1):
+        eig_method = "np"
+
     eig_vals, eig_vecs = None, None
 
     if (eig_method == "sp"):
@@ -89,12 +95,11 @@ def eigsort(A, k, which="LM", eig_method="sp"):
 def normalize_rows(w):
     # Source: https://stackoverflow.com/a/59365444/1701415
     # Find the row scalars as a Matrix_(n,1)
-    row_sum_w = sp.csr_matrix(w.sum(axis=1))
-    row_sum_w.data = 1 / row_sum_w.data
-    # Find the diagonal matrix to scale the rows
-    row_sum_w = row_sum_w.transpose()
-    scaling_matrix = np.diag(row_sum_w.toarray().reshape(
-        (row_sum_w.shape[0] * row_sum_w.shape[1])))
+    row_sum_w = np.abs(w).sum(axis=1)
+
+    row_sum_w[row_sum_w == 0] = 1. # If a row has 0 weight, it stays 0
+
+    scaling_matrix = np.eye(w.shape[0]) / row_sum_w
 
     return scaling_matrix.dot(w)
 
@@ -116,11 +121,13 @@ def svd_whiten(X):
 def count_trivial_fixed_pts(trajectory: np.ndarray, atol: float = 1e-3) -> int:
     """
     :param trajectory: the trajectory of shape [n_dofs, n_timesteps]
+    :param atol: This is the absolute numerical tolerance that
+        determines whether a subtrajectory has reached 0.
     """
 
     # 1. We transform the trajectory into a binary array according to
     #    whether a point is within (=> 0)the given threshold of zeros or not (=> 1)
-    trajectory_bin = np.where(np.isclose(trajectory, 0., atol=atol), 0, 1)
+    trajectory_bin = np.where(np.isclose(trajectory.T, 0., atol=atol), 0, 1)
 
     # 2. We count the number of columns with only zeros.
     trajectory_collapsed = np.sum(trajectory_bin, axis=1)
@@ -132,12 +139,14 @@ def count_trivial_fixed_pts(trajectory: np.ndarray, atol: float = 1e-3) -> int:
 def count_fixed_pts(trajectory: np.ndarray, atol: float = 1e-3) -> int:
     """
     :param trajectory: the trajectory of shape [n_dofs, n_timesteps]
+    :param atol: This is the absolute numerical tolerance that
+        determines whether a subtrajectory has reached 0.
     """
     # 1. We transform the trajectory into a binary array according to
-    #    whether a point is within (=> 0)the given threshold of its initial value or not (=> 1)
+    #    whether a point is within (=> 0)the given threshold of its final value or not (=> 1)
 
-    initial_state = np.array([trajectory[:, 0]]).T * np.ones(trajectory.shape)
-    trajectory_bin = np.where(np.isclose(trajectory, initial_state, atol=atol),
+    initial_state = np.array([trajectory.T[:, -1]]).T * np.ones(trajectory.T.shape)
+    trajectory_bin = np.where(np.isclose(trajectory.T, initial_state, atol=atol),
                               0, 1)
 
     # 2. We count the number of columns with only zeros.
@@ -153,12 +162,14 @@ def count_cycles(trajectory: np.ndarray, atol: float = 1e-1, max_n_steps: Option
 
     inspiration from https://stackoverflow.com/a/17090200/1701415
     """
-    n_timesteps = trajectory.shape[1]
+    n_dofs, n_timesteps = trajectory.T.shape
 
     if max_n_steps and max_n_steps < n_timesteps:
-        trajectory = trajectory[:, (n_timesteps - max_n_steps):]
+        trajectory = trajectory.T[:, (n_timesteps - max_n_steps):]
+    else:
+        trajectory = trajectory.T
 
-    cycles = np.zeros(trajectory.shape[0])
+    cycles = np.zeros(n_dofs)
 
     # TODO: See if you can do this without the explicit for loop
     for i in tqdm(range(trajectory.shape[0]), desc="Counting cycles..."):
@@ -216,12 +227,14 @@ def participation_ratio(trajectory, max_n_steps: Optional[int]=None ):
 def test_count_trivial_fixed_pts():
     trajectory = np.array([[0., 1., 2.], [0., 0., 0.], [0., 0., 0.],
                            [1., 0., 0.]])
-    assert count_trivial_fixed_pts(trajectory) == 2
+    assert count_trivial_fixed_pts(trajectory.T) == 2
+    assert count_fixed_pts(trajectory.T) == count_trivial_fixed_pts(trajectory.T)
 
 def test_count_fixed_pts():
     trajectory = np.array([[0., 1., 2.], [0., 0., 0.], [2., 2., 2.],
                            [1., 1., 1.]])
-    assert count_fixed_pts(trajectory) == 3
+    assert count_fixed_pts(trajectory.T) == 3
+    assert count_fixed_pts(trajectory.T) >= count_trivial_fixed_pts(trajectory.T)
 
 def test_count_cycles():
     x = np.arange(0, 100 * np.pi, 0.01)
@@ -233,7 +246,7 @@ def test_count_cycles():
 
     trajectory = np.array([signal_1, signal_2, signal_3, signal_4, signal_5])
 
-    assert count_cycles(trajectory, 0.1, verbose=False)  == 2
+    assert count_cycles(trajectory.T, 0.1, verbose=False)  == 2
 
 def test_participation_ratio():
     # Fully dependent components -> D = 1
@@ -272,10 +285,21 @@ def test_random_orthonormal():
 def test_normalize_rows():
     assert np.allclose(
         normalize_rows(
-            sp.csr_matrix(
                 np.array([[5, 1, 4], [0, 1, 1], [1, 1, 2]],
-                         dtype="float64"))).todense(),
-        sp.csr_matrix(
+                         dtype="float64")),
             np.array([[0.5, 0.1, 0.4], [0, 0.5, 0.5], [0.25, 0.25, 0.5]],
-                     dtype="float64")).todense(),
+                     dtype="float64"),
     )
+
+def test_normalize_rows_1():
+    assert np.allclose(
+        normalize_rows(
+                np.array([[5, 1, 4], [0, 0, 0], [1, 1, 2]],
+                         dtype="float64")),
+            np.array([[0.5, 0.1, 0.4], [0, 0, 0], [0.25, 0.25, 0.5]],
+                     dtype="float64"),
+    )
+def test_eigsort():
+
+    assert np.allclose(eigsort(np.array([[2, 0, 0], [0, 4, 0], [0, 0,3]]), k=10, eig_method="np")[0],
+                       np.array([4, 3, 2]))

@@ -20,6 +20,7 @@ notebook = "*"
 wheel = "*"
 setuptools = "*"
 jedi = "*"
+nptyping = "*"
 
 [requires]
 python_version = "3.8"

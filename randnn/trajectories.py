@@ -9,13 +9,22 @@ Year: 2020
 
 """
 import os, hashlib, logging
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Any
 
+from nptyping import NDArray
 import numpy as np
 from tqdm import tqdm
 from scipy.integrate import RK45
 from .integrate import EulerMaruyama, Position
 from .utils import np_cache, qr_positive, random_orthonormal
+
+# Meant to be a series of positions in some phase space.
+# The first dimension is over time; the second over phase space.
+TimeSeries = NDArray[(Any, Any), float]
+
+# A position in phase space.
+# I should probably call this State or Configuration instead.
+Position = NDArray[(Any), float]
 
 class Trajectory:
     """
@@ -25,17 +34,23 @@ class Trajectory:
     """
     def __init__(self,
                  timestep: float =1e-3,
-                 init_state: Optional[Union[np.ndarray, float]] = None,
+                 init_state: Optional[Position] = None,
                  n_dofs: Optional[int] = 100,
                  vectorized: bool=True):
         """
-        :param init_state: the state to initialize the neurons with.
-            defaults to a state of `n_dofs` neurons drawn randomly from the uniform distribution.
-            if int, then this multiplies the above,
-            if left blank, then `n_dofs` must be specified.
-        :param n_dofs: the number of dofs.
-            if `init_state` is of type `int`, this must be specified,
-            else `n_dofs` is overwritten by the size of `init_state`
+        :param timestep: The timestep to take curing an evolution.
+            This is 1 for discrete trajectories, otherwise a value
+            likely much smaller than 1.
+        :param init_state: The state to initialize the neurons with.
+            defaults to a state of `n_dofs` neurons drawn randomly
+            from the uniform distribution.  if int, then this
+            multiplies the above, if left blank, then `n_dofs` must be
+            specified.
+        :param n_dofs: The number of dofs.  if `init_state` is of type
+            `int`, this must be specified, else `n_dofs` is
+            overwritten by the size of `init_state`
+        :param vectorized: This is by ODESolver in some way that I
+            have yet to figure out.  TODO: Is this even necessary?
         """
         self.timestep = timestep
 
@@ -75,12 +90,17 @@ class Trajectory:
                               n_exponents: Optional[int] = None,
                               t_ons: int = 10) -> np.ndarray:
         """
-        :param trajectory: the discretized samples, with shape (n_timesteps, n_dofs),
-        :param n_burn_in: the number of initial transients to discard
-        :param n_exponents: the number of lyapunov exponents to calculate (in decreasing order).
-            Leave this blank to compute the full spectrum.
-
-        TODO: Iteratively compute the optimal `t_ons`
+        :param trajectory: The discretized samples, with shape
+            (n_timesteps, n_dofs),
+        :param n_burn_in: The number of initial transients to discard
+        :param n_exponents: The number of lyapunov exponents to
+            calculate (in decreasing order).  Leave this blank to
+            compute the full spectrum.
+        :param t_ons: To lower computational burden, we do not perform
+            the full reorthonormalization step with each step in the
+            trajectory.  Instead, we reorthonormalize every `t_ons`
+            steps.
+            TODO: Iteratively compute the optimal `t_ons`
         """
 
         if n_exponents is None:

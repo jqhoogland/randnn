@@ -7,10 +7,11 @@ Year: 2020
 
 """
 import numpy as np
-
 from typing import Callable, List, Any, Optional
+
+from pynamics.trajectories import Trajectory
 from .networks import ContinuousNN
-from .trajectories import Trajectory
+
 
 
 def scaling_analysis(scaling_kwargs: List[dict],

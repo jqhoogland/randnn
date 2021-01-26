@@ -10,7 +10,7 @@ Year: 2020
 import numpy as np
 from typing import Optional, Union
 
-from .trajectories import DeterministicTrajectory
+from pynamics.trajectories import DeterministicTrajectory
 from .topologies import get_gaussian_topology
 
 

@@ -11,14 +11,12 @@ import numpy as np
 from typing import Optional, Union
 
 from pynamics.trajectories import DeterministicTrajectory
-from .topologies import get_gaussian_topology
-
+from ..topologies import get_gaussian_topology
 
 class ContinuousNN(DeterministicTrajectory):
     def __init__(self,
-                 coupling_strength: Optional[float] = 1.,
+                 coupling_strength: float = 1.,
                  coupling_matrix: Optional[np.ndarray] = None,
-                 self_interaction: bool = False,
                  network_seed: Optional[int] = None,
                  **kwargs) -> None:
         """
@@ -29,9 +27,6 @@ class ContinuousNN(DeterministicTrajectory):
             neurons.  defaults to a gaussian random coupling matrix
             with variation $g^2/N$, where $N$ is `n_dofs` and $g$ is
             the coupling_stregnth.
-        :param self_interaction: This is used if we randomly generatea
-            coupling matrix.  It determines whether we do or do not
-            allow diagonal elements on the connectivity matrix
         :param network_seed: If we randomly generate a coupling
             matrix, this parameter determines the seed to use for
             np.random.  This is useful if we'd like to compare similar
@@ -45,17 +40,22 @@ class ContinuousNN(DeterministicTrajectory):
         super().__init__(**kwargs)
 
         if not coupling_matrix is None:
-            self.coupling_matrix = coupling_matrix
+            coupling_matrix = coupling_matrix
             coupling_strength = np.std(coupling_matrix) * np.sqrt(self.n_dofs)
 
         elif coupling_strength:
-            self.coupling_matrix = get_gaussian_topology(
-                self.n_dofs, coupling_strength, self_interaction,
-                self.network_seed)
+            coupling_matrix = get_gaussian_topology(
+                self.n_dofs,
+                coupling_strength,
+                False,
+                self.network_seed
+            )
+
         else:
             raise ValueError("Either `coupling_matrix` or `coupling_strength` must be provided.")
 
         self.coupling_strength = coupling_strength
+        self.coupling_matrix = coupling_matrix
 
     def __repr__(self):
         return "<ContinuousNN coupling_strength:{} n_dofs:{} timestep:{} seed: {}>".format(

@@ -1,10 +1,10 @@
 import numpy as np
 
 from ..utils import dilute_connectivity
-from .base import ContinuousNN
+from .gaussian import GaussianNN
 
 
-class SparseRandNN(ContinuousNN):
+class SparseRandNN(GaussianNN):
     def __init__(self,
                  sparsity: float=0.,
                  normalize_strength: bool=False,
@@ -22,14 +22,13 @@ class SparseRandNN(ContinuousNN):
         super().__init__(**kwargs)
 
         self.sparsity = sparsity
-        self.sparsity_mask = dilute_connectivity(self.n_dofs, sparsity, False)
+        self.edges_matrix = dilute_connectivity(self.n_dofs, sparsity, False)
 
         if sparsity and normalize_strength:
             self.coupling_strength /= (1. -sparsity)
-            self.coupling_matrix /= (1. -sparsity)
+            self.weights_matrix /= (1. -sparsity)
 
-        self._coupling_matrix = self.coupling_matrix
-        self.coupling_matrix = np.multiply(self.sparsity_mask, self._coupling_matrix)
+        self.edges_matrix = np.multiply(self.edges_mask, self.weights_matrix)
 
     def __repr__(self):
         return "<SparseRandNN coupling_strength:{} sparsity: {} n_dofs:{} timestep:{} seed: {}>".format(

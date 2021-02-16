@@ -2,6 +2,8 @@ from typing import Optional
 
 import numpy as np
 
+
+
 def dilute_connectivity(n_dofs: int, sparsity: Optional[float]=None, self_interaction: bool=False):
     """
     :param n_dofs: the dimension of the connectivity matrix.

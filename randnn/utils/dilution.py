@@ -3,7 +3,6 @@ from typing import Optional
 import numpy as np
 
 
-
 def dilute_connectivity(n_dofs: int, sparsity: Optional[float]=None, self_interaction: bool=False):
     """
     :param n_dofs: the dimension of the connectivity matrix.
@@ -17,7 +16,7 @@ def dilute_connectivity(n_dofs: int, sparsity: Optional[float]=None, self_intera
 
     sparsity_mask = np.ones([n_dofs, n_dofs])
     n_edges = int(n_dofs * (n_dofs + self_interaction - 1))
-    n_edges_deleted = int(n_edges * sparsity)
+    n_edges_deleted = round(n_edges * sparsity)
 
     if self_interaction is False:
         sparsity_mask[np.diag_indices_from(sparsity_mask)] = 0
@@ -39,32 +38,30 @@ def dilute_connectivity(n_dofs: int, sparsity: Optional[float]=None, self_intera
 
     return sparsity_mask
 
-def test_dilute_connectivity():
-    n_dofs = 100
 
+# ------------------------------------------------------------
+# TESTING
+
+def test_dilute_connectivity():
     # sparsity must be in [0, 1]
+
     try:
-        mask_1 = dilute_connectivity(n_dofs, 1.1)
+        dilute_connectivity(100, 1.1)
         assert False
     except AssertionError:
         assert True
 
-    # sparsity = 0 preserves all connections
-    mask_2 = dilute_connectivity(n_dofs, 0., True)
-    assert np.sum(mask_2) == n_dofs ** 2
+    try:
+        dilute_connectivity(100, -0.1)
+        assert False
+    except AssertionError:
+        assert True
 
-    mask_3 = dilute_connectivity(n_dofs, 0., False)
-    assert np.sum(mask_3) == n_dofs * (n_dofs - 1)
-    assert np.all(np.diagonal(mask_3) == 0)
+    for s in np.arange(0, 1, 0.1):
+        for n in range(100, 1000, 100):
+            mask_1 = dilute_connectivity(n, s, True)
+            assert np.sum(mask_1) == round((n ** 2) * (1 - s))
 
-    # sparsity = 1 deletes all connections
-    mask_4 = dilute_connectivity(n_dofs, 1., False)
-    assert np.sum(mask_4) == 0
-
-    # sparsity = 0.4 deletes 40% of the connections
-    mask_5 = dilute_connectivity(n_dofs, 0.4, True)
-    assert np.sum(mask_5) == n_dofs ** 2 * (1 - 0.4)
-
-    mask_6 = dilute_connectivity(n_dofs, 0.4, False)
-    assert np.sum(mask_6) == n_dofs * (n_dofs - 1) * (1 - 0.4)
-    assert np.all(np.diagonal(mask_6) == 0)
+            mask_2 = dilute_connectivity(n, s, False)
+            assert np.sum(mask_2) == round(n * (n - 1) * (1 - s))
+            assert np.all(np.diagonal(mask_2) == 0)

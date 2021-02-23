@@ -1,7 +1,8 @@
 import numpy as np
 
-from ..topologies import get_gaussian_topology
 from .base import BaseNN
+from ..topologies import get_gaussian_topology
+
 
 class GaussianNN(BaseNN):
     def __init__(self,
@@ -30,7 +31,7 @@ class GaussianNN(BaseNN):
 
         # Final adjacency matrix where (i, j) = weight in weights matrix iff (i, j) == 1 in edges matrix
         # This is the element-wise product of the edges and weights matrices.
-        self.coupling_matrix = np.multiply(self.edges_matrix, self.weights_matrix)
+        self.update_coupling_matrix(self.weights_matrix, self.edges_matrix)
 
 
     def __repr__(self):
@@ -42,17 +43,13 @@ class GaussianNN(BaseNN):
 # ------------------------------------------------------------
 # TESTING
 
+def test_coupling_matrix():
+    for g in np.arange(0.5, 20, 0.5):
+        for n in range(50, 1000, 100):
+            g_squiggle = g ** 2 / n
 
-def test_jacobian_shape():
-    coupling_matrix = np.eye(3, k=1)
-    state = np.zeros(3)
-    cont_nn = ContinuousNN(coupling_matrix=coupling_matrix, n_dofs=3)
-    assert np.allclose(cont_nn.jacobian(state),
-                       np.array([[-1, 1, 0], [0, -1, 1], [0, 0, -1]]))
-
-
-def test_jacobian_saturation():
-    coupling_matrix = np.eye(3, k=1)
-    state = np.ones(3) * 100000000.
-    cont_nn = ContinuousNN(coupling_matrix=coupling_matrix, n_dofs=3)
-    assert np.allclose(cont_nn.jacobian(state), -np.eye(3))
+            assert np.allclose(
+                np.var(GaussianNN(coupling_strength=g, n_dofs=n).coupling_matrix),
+                g_squiggle,
+                rtol=1e-3
+            ), "GaussianNN not initializing coupling matrix with correct weight dist."

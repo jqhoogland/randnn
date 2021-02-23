@@ -9,7 +9,7 @@ Year: 2020
 from typing import Optional
 
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 def get_gaussian_topology(n_nodes: int, coupling_strength: float,
                           self_interaction: bool = False,
@@ -30,13 +30,15 @@ def get_gaussian_topology(n_nodes: int, coupling_strength: float,
         np.random.seed(network_seed)
 
     strength_normalized = (coupling_strength /
-                                    np.sqrt(n_nodes))
+                           np.sqrt(n_nodes))
 
-    coupling_matrix = (strength_normalized * np.random.normal(size=(n_nodes, n_nodes)))
+    normalized_matrix = np.random.normal(size=(n_nodes, n_nodes))
 
     if not self_interaction:
         diagonal = np.arange(n_nodes)
-        coupling_matrix[diagonal, diagonal] = 0.
+        normalized_matrix[diagonal, diagonal] = 0.
+
+    coupling_matrix = (strength_normalized * normalized_matrix / np.std(normalized_matrix))
 
     return coupling_matrix
 

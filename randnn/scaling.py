@@ -6,12 +6,11 @@ Author: Jesse Hoogland
 Year: 2020
 
 """
-import numpy as np
 from typing import Callable, List, Any, Optional
 
-from pynamics.trajectories import Trajectory
-from .networks import ContinuousNN
+import numpy as np
 
+from .networks import GaussianNN
 
 
 def scaling_analysis(scaling_kwargs: List[dict],
@@ -47,7 +46,7 @@ def scaling_analysis(scaling_kwargs: List[dict],
 
 def scaling_n_dofs():
     def init_fn(n_steps=1000, n_burn_in=200, t_ons=10, **kwargs):
-        system = ContinuousNN(**kwargs)
+        system = GaussianNN(**kwargs)
         trajectory = system.run(n_steps=n_steps, n_burn_in=n_burn_in)
 
         return system.get_lyapunov_spectrum(trajectory, t_ons=t_ons)

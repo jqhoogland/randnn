@@ -1,0 +1,1 @@
+from .dales_law import *

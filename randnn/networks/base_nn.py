@@ -29,10 +29,13 @@ class BaseNN(DeterministicTrajectory):
         :param kwargs: see parent class.
         """
         super().__init__(**kwargs)
-        self.network_seed = network_seed
 
+        self.network_seed = network_seed
         if network_seed:
             np.random.seed(network_seed)
+
+        # To make accessing non-diagonal elements easier
+        self.non_diagonal_idxs = np.where(np.ones((self.n_dofs, self.n_dofs)) - np.eye(self.n_dofs))
 
         # Binary matrix with (i, j) = 1 if there is an edge from i to j, 0 otherwise.
         self.edges_matrix = self.gen_edges()

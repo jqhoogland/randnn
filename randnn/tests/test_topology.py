@@ -1,7 +1,7 @@
 import numpy as np
 
-from randnn.topology import get_fully_connected_edges, dilute_connectivity
-
+from randnn.topology import get_fully_connected_edges, dilute_connectivity, power_law_dist
+from randnn.topology.scale_free import get_degree_seq, degree_seq_to_edges
 
 # ----------------------------------------------------------- -
 # FULLY-CONNECTED
@@ -10,8 +10,7 @@ from randnn.topology import get_fully_connected_edges, dilute_connectivity
 def test_fully_connected_edges():
     edge_matrix = get_fully_connected_edges(10000, False)
     assert np.allclose(np.diag(edge_matrix), np.zeros(10000))
-    assert np.allclose(edge_matrix[edge_matrix != 0] == np.ones(10000)[edge_matrix != 0])
-
+    assert np.allclose(edge_matrix[edge_matrix != 0], np.ones((10000,10000))[edge_matrix != 0])
 
 # ----------------------------------------------------------- -
 # UNIFORM DILUTION
@@ -32,8 +31,8 @@ def test_dilute_connectivity():
     except AssertionError:
         assert True
 
-    for s in np.arange(0, 1, 0.1):
-        for n in range(100, 1000, 100):
+    for s in np.arange(0, 1, 0.2):
+        for n in range(100, 1000, 200):
             mask_1 = dilute_connectivity(n, s, True)
             assert np.sum(mask_1) == round((n ** 2) * (1 - s))
 

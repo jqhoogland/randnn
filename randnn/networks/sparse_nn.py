@@ -25,8 +25,9 @@ class SparseRandNN(GaussianNN):
         super().__init__(**kwargs)
 
     def __repr__(self):
-        return "<SparseRandNN coupling_strength:{} sparsity: {} n_dofs:{} timestep:{} seed: {}>".format(
-            self.coupling_strength, self.sparsity, self.n_dofs, self.timestep, self.network_seed
+        return "<SparseRandNN coupling_strength:{} sparsity: {} n_dofs:{} timestep:{} seed: {} normalize:{}>".format(
+            self.coupling_strength, self.sparsity, self.n_dofs, self.timestep, self.network_seed,
+            self.normalize_strength
         )
 
     def gen_edges(self):
@@ -39,16 +40,15 @@ class SparseRandNN(GaussianNN):
             # If `normalize_strength`, the edge weights over all pairs of nodes
             # (edge or no edge) should have a stdev = g / \sqrt{N}
             self.weights_matrix *= self.coupling_strength / (
-                        np.sqrt(self.n_dofs) * np.std(coupling_matrix_unnormalized))
+                    np.sqrt(self.n_dofs) * np.std(coupling_matrix_unnormalized[self.non_diagonal_idxs]))
         else:
             # Otherwise, the edge weights over all pairs of nodes
             # should have a stdev = (1 - s ) g / \sqrt{N}
             self.weights_matrix *= (
                     self.coupling_strength * (1 - self.sparsity) / (
-                        np.sqrt(self.n_dofs) * np.std(coupling_matrix_unnormalized))
+                    np.sqrt(self.n_dofs) * np.std(coupling_matrix_unnormalized[self.non_diagonal_idxs]))
             )
 
         coupling_matrix = self._compute_coupling_matrix(self.weights_matrix, self.edges_matrix, self.signs_matrix)
-        self.coupling_strength = np.std(coupling_matrix) * np.sqrt(self.n_dofs)
 
         return coupling_matrix

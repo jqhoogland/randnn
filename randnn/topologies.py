@@ -38,6 +38,7 @@ def get_gaussian_topology(n_nodes: int, coupling_strength: float,
         diagonal = np.arange(n_nodes)
         normalized_matrix[diagonal, diagonal] = 0.
 
+    # TODO: Go back to ignoring the diagonal in calculating the coupling strength
     coupling_matrix = (strength_normalized * normalized_matrix / np.std(normalized_matrix))
 
     return coupling_matrix

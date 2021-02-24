@@ -29,7 +29,9 @@ class BaseNN(DeterministicTrajectory):
         """
         super().__init__(**kwargs)
         self.network_seed = network_seed
-        np.random.seed(network_seed)
+
+        if network_seed:
+            np.random.seed(network_seed)
 
         self.update_coupling_matrix(np.eye(kwargs.get("n_dofs", 100)))
 

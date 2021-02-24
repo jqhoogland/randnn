@@ -2,14 +2,14 @@ import math
 
 import numpy as np
 
-from .gaussian import GaussianNN
-from ..utils import dilute_connectivity
+from randnn.networks.weights.gaussian import GaussianNN
+from .topology import dilute_connectivity
 
 
 class SparseRandNN(GaussianNN):
     def __init__(self,
                  sparsity: float = 0.,
-                 normalize_strength: bool=False,
+                 normalize_strength: bool = False,
                  **kwargs) -> None:
         """
 
@@ -44,8 +44,9 @@ class SparseRandNN(GaussianNN):
         self.coupling_strength = np.std(self.coupling_matrix) * np.sqrt(self.n_dofs)
 
     def __repr__(self):
-        return "<SparseRandNN coupling_strength:{} sparsity: {} n_dofs:{} timestep:{} seed: {} normalized: {>".format(
-            self.coupling_strength, self.sparsity, self.n_dofs, self.timestep, self.network_seed)
+        return "<SparseRandNN coupling_strength:{} sparsity: {} n_dofs:{} timestep:{} seed: {}>".format(
+            self.coupling_strength, self.sparsity, self.n_dofs, self.timestep, self.network_seed
+        )
 
 
 # ------------------------------------------------------------

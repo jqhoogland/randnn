@@ -11,8 +11,8 @@ from typing import Optional
 
 import numpy as np
 
-from .gaussian import GaussianNN
-from ..utils import get_scale_free_edge_matrix
+from randnn.networks.weights.gaussian import GaussianNN
+from .topology import get_scale_free_edge_matrix
 
 
 class ScaleFreeNN(GaussianNN):

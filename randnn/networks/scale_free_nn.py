@@ -11,8 +11,8 @@ from typing import Optional
 
 import numpy as np
 
-from randnn.networks.weights.gaussian import GaussianNN
-from .topology import get_scale_free_edge_matrix
+from randnn.topology import get_scale_free_edge_matrix
+from .gaussian_nn import GaussianNN
 
 
 class ScaleFreeNN(GaussianNN):
@@ -32,7 +32,6 @@ class ScaleFreeNN(GaussianNN):
         :param min_degree: the minimum allowed degree. Must be >= 1 (defaults to 1)
         :param kwargs: see parent class.
         """
-        super().__init__(**kwargs)
 
         if max_degree is None:
             max_degree = self.n_dofs - 1
@@ -46,16 +45,9 @@ class ScaleFreeNN(GaussianNN):
         self.alpha = alpha
         self.max_degree = max_degree
         self.min_degree = min_degree
+        self.normalize_strength = normalize_strength
 
-        self.edges_matrix = get_scale_free_edge_matrix(
-            alpha, max_degree, min_degree, self.n_dofs
-        )
-        self.coupling_matrix = np.multiply(self.edges_matrix, self.weights_matrix)
-
-        if normalize_strength:
-            true_strength = np.std(self.coupling_matrix)
-
-            self.coupling_matrix *= self.coupling_strength / true_strength
+        super().__init__(**kwargs)
 
     def __repr__(self):
         return f"<ScaleFreeNN coupling_strength:{self.coupling_strength} std:{np.std(self.coupling_matrix)} alpha:{self.alpha} min_degree:{self.min_degree} max_degree:{self.max_degree} n_dofs:{self.n_dofs} timestep:{self.timestep} seed: {self.network_seed} >"
@@ -64,7 +56,17 @@ class ScaleFreeNN(GaussianNN):
     def avg_degree(self):
         return np.sum(np.where(self.coupling_matrix > 0, 1, 0))
 
+    def gen_edges(self):
+        return get_scale_free_edge_matrix(
+            self.alpha, self.max_degree, self.min_degree, self.n_dofs
+        )
 
+    def compute_coupling_matrix(self, weights_matrix, edges_matrix=1, signs_matrix=1):
+        coupling_matrix = self._compute_coupling_matrix(weights_matrix, edges_matrix, signs_matrix)
 
-# ------------------------------------------------------------
-# TESTING
+        if self.normalize_strength:
+            true_strength = np.std(self.coupling_matrix)
+
+            coupling_matrix *= self.coupling_strength / true_strength
+
+        return coupling_matrix

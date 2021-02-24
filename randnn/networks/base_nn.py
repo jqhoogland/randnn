@@ -12,6 +12,7 @@ from typing import Optional
 import numpy as np
 
 from pynamics.trajectories import DeterministicTrajectory
+from ..topology import get_fully_connected_edges
 
 
 class BaseNN(DeterministicTrajectory):
@@ -33,14 +34,40 @@ class BaseNN(DeterministicTrajectory):
         if network_seed:
             np.random.seed(network_seed)
 
-        self.update_coupling_matrix(np.eye(kwargs.get("n_dofs", 100)))
+        # Binary matrix with (i, j) = 1 if there is an edge from i to j, 0 otherwise.
+        self.edges_matrix = self.gen_edges()
+
+        # Weights matrix generates a weight for *every* possible pair of nodes
+        self.weights_matrix = self.gen_weights()
+
+        # Signs generates a sign multiplier for every possible edge.
+        # By default this is a matrix of ones (i.e. do not change the edge weights).
+        # This becomes important for Dale's law & one-sided edge-weight distributions.
+        self.signs_matrix = self.gen_signs()
+
+        # Final adjacency matrix where (i, j) = weight in weights matrix iff (i, j) == 1 in edges matrix
+        # This is the element-wise product of the edges and weights matrices.
+        self.coupling_matrix = self.compute_coupling_matrix(self.weights_matrix, self.edges_matrix, self.signs_matrix)
 
     def __repr__(self):
         return "<BaseNN n_dofs:{} timestep:{} seed: {}>".format(
             self.coupling_strength, self.n_dofs, self.timestep, self.network_seed)
 
-    def update_coupling_matrix(self, weights_matrix, edges_matrix=1):
-        self.coupling_matrix = np.multiply(weights_matrix, edges_matrix)
+    def gen_edges(self):
+        return get_fully_connected_edges(self.n_dofs, False)
+
+    def gen_weights(self):
+        raise NotImplementedError
+
+    def gen_signs(self):
+        return np.ones((self.n_dofs, self.n_dofs))
+
+    @staticmethod
+    def _compute_coupling_matrix(weights_matrix, edges_matrix=1, signs_matrix=1):
+        return np.multiply(np.multiply(weights_matrix, edges_matrix), signs_matrix)
+
+    def compute_coupling_matrix(self, weights_matrix, edges_matrix=1, signs_matrix=1):
+        return self._compute_coupling_matrix(weights_matrix, edges_matrix, signs_matrix)
 
     @staticmethod
     def activation(state: np.ndarray) -> np.ndarray:
@@ -58,29 +85,3 @@ class BaseNN(DeterministicTrajectory):
     def take_step(self, t: int, state: np.ndarray) -> np.ndarray:
         return -state + self.coupling_matrix @ self.activation(state)
 
-
-# ------------------------------------------------------------
-# TESTING
-
-def test_coupling_matrix():
-    for n in range(10, 100, 30):
-        assert np.allclose(
-            BaseNN(n_dofs=n).coupling_matrix,
-            np.eye(n)
-        ), "BaseNN not initializing coupling matrix with correct # dofs "
-
-
-def test_jacobian():
-    for n in range(10, 100, 30):
-        assert np.allclose(
-            BaseNN(n_dofs=n, timestep=0.3).jacobian(np.zeros(n)),
-            (-0.4 * np.eye(n))
-        ), "BaseNN not correctly calculating jacobian when state is 0"
-
-
-def test_jacobian_saturation():
-    for n in range(10, 100, 30):
-        assert np.allclose(
-            BaseNN(n_dofs=n, timestep=0.3).jacobian(np.ones(n) * 1e10),
-            -np.eye(n) * 0.7
-        ), "BaseNN not correctly calculating jacobian when state is uniformly large"

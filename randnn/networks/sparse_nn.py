@@ -1,6 +1,6 @@
 import numpy as np
 
-from randnn.topology import dilute_connectivity
+from randnn.topologies import dilute_connectivity
 from .gaussian_nn import GaussianNN
 
 

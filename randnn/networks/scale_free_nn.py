@@ -11,7 +11,7 @@ from typing import Optional
 
 import numpy as np
 
-from randnn.topology import get_scale_free_edge_matrix
+from randnn.topologies import get_scale_free_edge_matrix
 from .gaussian_nn import GaussianNN
 
 
@@ -21,6 +21,7 @@ class ScaleFreeNN(GaussianNN):
                  max_degree: Optional[int] = None,
                  min_degree: Optional[int] = None,
                  normalize_strength: bool = False,
+                 n_dofs: int = 100,
                  **kwargs) -> None:
         """
         A network with a power law distribution:
@@ -34,20 +35,20 @@ class ScaleFreeNN(GaussianNN):
         """
 
         if max_degree is None:
-            max_degree = self.n_dofs - 1
+            max_degree = n_dofs - 1
 
         if min_degree is None:
             min_degree = 1
 
         assert alpha >= 0, "``alpha`` must be positive"
-        assert 0 < min_degree < max_degree < self.n_dofs
+        assert 0 < min_degree < max_degree < n_dofs
 
         self.alpha = alpha
         self.max_degree = max_degree
         self.min_degree = min_degree
         self.normalize_strength = normalize_strength
 
-        super().__init__(**kwargs)
+        super().__init__(n_dofs=n_dofs, **kwargs)
 
     def __repr__(self):
         return f"<ScaleFreeNN coupling_strength:{self.coupling_strength} std:{np.std(self.coupling_matrix)} alpha:{self.alpha} min_degree:{self.min_degree} max_degree:{self.max_degree} n_dofs:{self.n_dofs} timestep:{self.timestep} seed: {self.network_seed} >"

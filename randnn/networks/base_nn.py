@@ -12,7 +12,7 @@ from typing import Optional
 import numpy as np
 
 from pynamics.trajectories import DeterministicTrajectory
-from ..topology import get_fully_connected_edges
+from ..topologies import get_fully_connected_edges
 
 
 class BaseNN(DeterministicTrajectory):

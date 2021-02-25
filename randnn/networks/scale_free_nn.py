@@ -51,7 +51,7 @@ class ScaleFreeNN(GaussianNN):
         super().__init__(n_dofs=n_dofs, **kwargs)
 
     def __repr__(self):
-        return f"<ScaleFreeNN coupling_strength:{self.coupling_strength} std:{np.std(self.coupling_matrix)} alpha:{self.alpha} min_degree:{self.min_degree} max_degree:{self.max_degree} n_dofs:{self.n_dofs} timestep:{self.timestep} seed: {self.network_seed} >"
+        return f"<ScaleFreeNN coupling_strength:{self.coupling_strength} alpha:{self.alpha} min_degree:{self.min_degree} max_degree:{self.max_degree} n_dofs:{self.n_dofs} timestep:{self.timestep} seed: {self.network_seed} normalize:{self.normalize_strength}>"
 
     @property
     def avg_degree(self):
@@ -66,7 +66,7 @@ class ScaleFreeNN(GaussianNN):
         coupling_matrix = self._compute_coupling_matrix(weights_matrix, edges_matrix, signs_matrix)
 
         if self.normalize_strength:
-            true_strength = np.std(self.coupling_matrix)
+            true_strength = np.std(coupling_matrix[self.non_diagonal_idxs])
 
             coupling_matrix *= self.coupling_strength / true_strength
 

@@ -1,4 +1,4 @@
-from .exponential_nn import *
+from .dales_law_nn import *
 from .gaussian_nn import *
 from .scale_free_nn import *
 from .scale_free_nn import *

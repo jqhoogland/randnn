@@ -1,8 +1,10 @@
+import numpy as np
+
 from randnn.weights import get_gaussian_weights
-from .base_nn import BaseNN
+from .base_nn import BaseNN, ElementWiseInit
 
 
-class GaussianNN(BaseNN):
+class GaussianNN(BaseNN, ElementWiseInit):
     def __init__(self,
                  coupling_strength: float = 1.,
                  **kwargs) -> None:
@@ -14,9 +16,17 @@ class GaussianNN(BaseNN):
 
         super().__init__(**kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<GaussianNN coupling_strength:{} n_dofs:{} timestep:{} seed: {}>".format(
             self.coupling_strength, self.n_dofs, self.timestep, self.network_seed)
 
-    def gen_weights(self):
-        return get_gaussian_weights(self.n_dofs, self.coupling_strength)
+    @property
+    def get_radius(self):
+        return self.coupling_strength
+
+    @staticmethod
+    def _gen_weights(n_dofs: int, g: float) -> np.ndarray:
+        return get_gaussian_weights(n_dofs, g)
+
+    def gen_weights(self) -> np.ndarray:
+        return self._gen_weights(self.n_dofs, self.coupling_strength)

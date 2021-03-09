@@ -62,8 +62,8 @@ class ScaleFreeNN(GaussianNN):
             self.alpha, self.max_degree, self.min_degree, self.n_dofs
         )
 
-    def compute_coupling_matrix(self, weights_matrix, edges_matrix=1, signs_matrix=1):
-        coupling_matrix = self._compute_coupling_matrix(weights_matrix, edges_matrix, signs_matrix)
+    def compute_coupling_matrix(self, weights_matrix, edges_matrix=1, signs_matrix=1, offset_matrix=0):
+        coupling_matrix = self._compute_coupling_matrix(weights_matrix, edges_matrix, signs_matrix, offset_matrix)
 
         if self.normalize_strength:
             true_strength = np.std(coupling_matrix[self.non_diagonal_idxs])

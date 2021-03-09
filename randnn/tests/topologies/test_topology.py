@@ -1,6 +1,6 @@
 import numpy as np
 
-from randnn.topology import get_fully_connected_edges, dilute_connectivity
+from randnn.topologies import get_fully_connected_edges, dilute_connectivity
 # ----------------------------------------------------------- -
 # FULLY-CONNECTED
 # ----------------------------------------------------------- -

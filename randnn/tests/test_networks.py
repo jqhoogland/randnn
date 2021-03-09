@@ -1,37 +1,44 @@
 import numpy as np
 
-from randnn.networks import BaseNN, SparseRandNN
+from randnn.networks import BaseNN, SparseRandNN, ElementWiseInit
 
 
 # ------------------------------------------------------------
 # GAUSSIAN NETS
 
-class NN1(BaseNN):
+class NN1(BaseNN, ElementWiseInit):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def gen_weights(self):
         return np.eye(self.n_dofs)
 
     def gen_edges(self):
         return np.ones((self.n_dofs, self.n_dofs))
 
-class NN2(BaseNN):
+class NN2(BaseNN, ElementWiseInit):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def gen_weights(self):
         return np.eye(self.n_dofs, k=1) + np.eye(self.n_dofs, k=-1)
 
     def gen_signs(self):
         return np.ones((self.n_dofs, self.n_dofs)) - 2 * np.eye(self.n_dofs, k=-1)
 
-def test_coupling_matrix():
+def test_coupling_matrix_1():
     for n in range(10, 100, 30):
         assert np.allclose(
             NN1(n_dofs=n).coupling_matrix,
             np.eye(n)
         )
 
+def test_coupling_matrix_2():
+    for n in range(10, 100, 30):
         assert np.allclose(
             NN2(n_dofs=n).coupling_matrix,
             np.eye(n, k=1) - np.eye(n, k=-1)
         )
-
 
 def test_jacobian():
     for n in range(10, 100, 30):
